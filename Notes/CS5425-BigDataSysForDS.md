@@ -1,6 +1,6 @@
-# 0 - Introduction of Big Data and Data Science
+# 1 - Introduction of Big Data and Data Science
 
-## 0.1 What will we learn?
+## 1.1 What will we learn?
 
 - We will learn to **process different types of data**:
   - Large data volume
@@ -12,13 +12,13 @@
   - Large graph processing engines
   - Streams and online algorithms
 
-## 0.2 Data Science
+## 1.2 Data Science
 
 > Data science is an **interdisciplinary** field about processes and systems to extract **knowledge or insights** from data in various forms.
 
 ![image-20231009161750553](https://images.wu.engineer/images/2023/10/09/image-20231009161750553.png)
 
-## 0.3 Challenges of Big Data: the 4 ‘V’s
+## 1.3 Challenges of Big Data: the 4 ‘V’s
 
 ![image-20231009161828669](https://images.wu.engineer/images/2023/10/09/image-20231009161828669.png)
 
@@ -31,7 +31,7 @@
 >
 > 随着大数据技术的发展，一些人也提到了其他的“V”字，如“Value（价值）”（从大数据中提取的实际价值）和“Vulnerability（脆弱性）”（数据的安全性和隐私问题）。但传统的四大V仍然是描述大数据挑战的主要方式。
 
-## 0.4 Cloud Computing
+## 1.4 Cloud Computing
 
 ### Utility Computing
 
@@ -77,7 +77,7 @@
 >
 > 总结起来，从 IaaS 到 PaaS 再到 SaaS，用户对底层资源的直接控制逐渐减少，但同时管理的复杂性也大大减少，使用户可以更加专注于自己的核心业务或任务。
 
-## 0.5 Data Centers
+## 1.5 Data Centers
 
 ### **Storage Hierarchy**
 
@@ -113,10 +113,10 @@
 
 ![image-20231009162919834](https://images.wu.engineer/images/2023/10/09/image-20231009162919834.png)
 
-# 1 - MapReduce
+# 2 - MapReduce
 
-## 1.1 Motivation
+## 2.1 Motivation
 
 
 
-## 1.2 Basic MapReduce
+## 2.2 Basic MapReduce
