@@ -117,6 +117,69 @@
 
 ## 2.1 Motivation
 
+### **Typical Big Data Problem**
 
+- Iterate over a large number of records
+- Extract something of interest from each (Map)
+- Shuffle and sort intermediate results (Shuffle)
+- Aggregate intermediate results (Reduce)
+- Generate final output
 
-## 2.2 Basic MapReduce
+**Example: **Tabulating Election Results from Multiple Polling Sites
+
+- Image you are hired to develop the software for election counting system
+- You need to aggregate vote counts from multiple stations into the final counts
+
+![image-20231009163723903](https://images.wu.engineer/images/2023/10/09/image-20231009163723903.png)
+
+**`MapReduce`**
+
+![image-20231009163916693](https://images.wu.engineer/images/2023/10/09/image-20231009163916693.png)
+
+> MapReduce 是一种编程模型和数据处理方法，用于处理和生成大数据集。目的是为了简化在大型、分布式环境中的数据处理。MapReduce 主要由两个步骤组成：Map（映射）步骤和 Reduce（归约）步骤。
+>
+> 1. **Map步骤**：
+>
+> - 输入数据被分割成小的数据块，并行地由多个任务（或称为节点）进行处理。
+> - 每个 Mapper 任务处理其所分配的数据块，并输出一组键值对。
+> - 例如，一个简单的 Map 任务可能会处理文本数据并输出每个单词及其出现的次数（键是单词，值是1）。
+>
+> 2. Shuffle
+>
+> - Shuffle 主要涉及的是数据的组织与重新分配。
+>
+> - **数据组织**：当 Map 任务执行完毕后，每个 Mapper 输出的是一系列的键值对。在 Shuffle 阶段，这些键值对需要根据其键进行排序。
+>
+> - **数据传输**：在 Shuffle 过程中，系统还负责将排序后的键值对传输到合适的 Reducer 节点上。这通常涉及跨网络的数据移动，因为在一个分布式系统中，Map 任务和 Reduce 任务可能不在同一台机器上执行。
+>
+> - **数据分组**：Shuffle 还包括一个分组步骤，其中键值对被按键分组，以便每个 Reducer 可以接收到一组具有相同键的键值对。这意味着每个 Reducer 会处理一个特定的键集。
+>
+> 3. **Reduce步骤**：
+>    - 这一步在 Map 步骤之后进行。Reducer 接收到所有 Mapper 输出的键值对。
+>    - 键值对会根据键进行排序和分组，这样所有相同的键都会聚集在一起。
+>    - 每个 Reducer 任务都会处理一组共享相同键的键值对，并输出一个新的键和其相关的值。
+>    - 继续上面的例子，Reducer 会接收到所有包含相同单词的键值对，然后将这些值加起来，输出单词及其总出现次数。
+>
+> MapReduce 的优点是它可以很容易地进行横向扩展，因为 Map 和 Reduce 任务都是并行处理的。这使得 MapReduce 适合于运行在成百上千的机器上，处理 TB 或 PB 级别的数据。
+
+### Writing `MapReduce` Programs
+
+- Typical Interface: Programmers specify two functions:
+  - `map(k1, v1) -> List(k2, v2)`
+  - `reduce(k2, list(v2)) -> List(k3, v3)`
+  - All values with the same key are sent to the same reducer
+
+![image-20231009164416969](https://images.wu.engineer/images/2023/10/09/image-20231009164416969.png)
+
+### `MapReduce` Execution Framework
+
+- Handles scheduling
+  - Assigns workers to map and reduce tasks
+- Handles ‘Data Distribution’
+  - Move processes to data
+- Handles synchronization
+  - Gathers, sorts, and shuffles intermediate data
+- Handles errors and faults
+  - Detects worker failures and restarts
+
+## 2.2 Basic `MapReduce`
