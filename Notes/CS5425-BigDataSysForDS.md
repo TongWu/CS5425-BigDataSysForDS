@@ -537,5 +537,76 @@ Partition by **yearMonth** only (not **temperature**)
 >
 > 总的来说，Secondary Sort 是 MapReduce 中的一个技巧，用于对输出数据进行更细粒度的排序。虽然实现它需要一些额外的配置和定制，但它为处理和分析排序的数据提供了巨大的灵活性。
 
-# 3 - Hadoop File System
+# 2b - Hadoop File System
+
+## 2b.1 Distributed File System
+
+- Don’t move data to workers, move workers to the data
+  - Store data on the local disk of nodes in the cluster
+  - Start up the workers on the node that has the data local
+- A distributed system is the answer
+  - GFS (Google File System) for Google’s MapReduce
+  - HDFS (Hadoop Distributed File System) for Hadoop
+
+> - 在大数据环境中，数据迁移成本很高，尤其是当我们谈论到TB或PB级别的数据。将数据从一个地方移动到另一个地方可能需要大量的时间和带宽。因此，与其移动大量的数据到计算节点上进行处理，不如将计算任务发送到存储数据的节点上，直接在数据所在地进行处理。这样，数据读取的延迟和网络带宽使用都大大降低。
+>   - 数据应该分布存储在集群的每个节点上，使得每个节点既是数据的存储者，也是数据的处理者。
+>   - 当需要对数据进行处理时，应该在存储该数据的节点上启动工作进程（workers）。这意味着计算会在数据所在的本地节点上执行，而不是在远程节点上。
+
+### 2b.2 GFS/HDFS Assumptions (Pros of GFS/HDFS)
+
+1. Commodity hardware instead of ‘exotic’ hardware
+
+   这意味着它可以在相对便宜的机器上运行，从而降低成本。
+
+2. High component failure rates
+
+   由于HDFS是在普通的商用硬件上运行的，故障率可能会相对较高。HDFS的设计考虑到了这一点，并通过冗余和数据复制来确保数据的可靠性和可用性。
+
+3. ‘Modest’ number of huge files
+
+   HDFS是为存储少量的非常大的文件而设计的，而不是大量的小文件。
+
+4. Files are write-once, mostly appended to
+
+   一旦文件被写入HDFS，它们通常是只读的，并且主要是被追加内容。这种设计减少了数据的不一致性和复杂性。
+
+5. Large streaming reads instead of random access
+
+   HDFS是为大数据流读取而优化的，而不是随机访问。这意味着它特别适合顺序地读取大文件的应用，例如MapReduce。
+
+   HDFS更关注持续的高吞吐量而不是低延迟。这与其用于大数据处理和分析的目的相符，这些任务通常需要读取和处理大量数据，而不是快速响应。
+
+## 2b.3 Design Decisions
+
+- Files stored as chunks
+  - Fixed size (64MB for GFS, 128MB for HDFS)
+- Reliability through replication
+  - Each chunk replicated across 3+ chunkservers
+- Single master to coordinate access, keep metadata
+  - Simple centralized management
+
+## 2b.4 HDFS Architecture
+
+![image-20231010200054856](https://images.wu.engineer/images/2023/10/10/image-20231010200054856.png)
+
+Q: How to perform replication when writing data?
+
+A: Namenode decides which datanodes are to be used as replicas. The 1st datanode forwards data blocks to the 1st replica, which forwards them to the 2nd replica, and so on.
+
+## 2b.5 Namenode Responsibilities
+
+- Managing the file system namespace:
+  - Holds file/dictionary structure, metadata, file-to-block mapping, access permissions, etc. Coordinating file operations
+  - Directs clients to datanodes for reads and writes
+  - No data is moved through the namenode
+- Maintaining overall health:
+  - Periodic communication with the datanode
+  - Block re-replication and rebalancing
+  - Garbage collection
+
+Q: What if namenode’s data lost?
+
+A: All files on the filesystem cannot be retrieved since there is no way to reconstruct them from the raw block data. Fortunately, Hadoop provides 2 ways of improving resilience, through backups and secondary namenodes (out of syllabus, but you can refer to Resources for details)
+
+![image-20231010200417781](https://images.wu.engineer/images/2023/10/10/image-20231010200417781.png)
 
