@@ -805,4 +805,251 @@ Steps:
 2. **Update**: move each cluster center to the **average** of its assigned points
 **Stop** if no assignments change
 
+# 4 - NoSQL Overview
+## 4.1 Introduction
+- NoSQL mainly refers to a **non-relational database**, i.e. it stores data in a format other than relational tables
+- "SQL" = Traditional Relational Database Management System (DBMS)
+- NoSQL has come to stand for "Not Only SQL", i.e. using relational and non-relational databases alongside one another, each for the tasks they are most suited for
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240146688.png)
 
+### Overview of NoSQL
+1. Horizontally scalability
+2. Replicate/distribute data over many servers
+3. Simple call interface
+4. Often weaker concurrency model than DBFS
+5. Efficient use of distributed indexes and RAM
+6. Flexible schemas
+
+NoSQL数据库是一种设计来克服传统关系型数据库（RDBMS）的局限性的数据库管理系统。传统的关系型数据库依赖于严格定义的表和模式，而NoSQL数据库通常允许更加灵活的数据模型。这里简要概述NoSQL的特点及其相对于关系型数据库的优缺点：
+
+1. **水平可扩展性**：NoSQL数据库可以通过增加更多的服务器来扩展数据库的存储和计算能力，而不是仅仅通过升级现有硬件的方式。
+2. **复制/分布数据**：NoSQL数据库可以将数据复制到多个服务器，以实现高可用性和冗余。它们还可以将数据分布在多个服务器上，以提高查询的性能。
+3. **简单的调用接口**：与SQL语言相比，NoSQL数据库通常提供更简单直接的方式来存储和检索数据。
+4. **较弱的并发模型**：相比于RDBMS的事务和锁机制，NoSQL数据库可能提供较弱的一致性保证，通常采用最终一致性模型。
+5. **分布式索引和RAM的高效使用**：NoSQL数据库能够高效地利用分布式索引和内存来快速响应查询。
+6. **灵活的模式**：NoSQL数据库不需要预先定义的模式，可以存储结构化、半结构化或非结构化数据。
+
+相对于传统关系型数据库，NoSQL数据库的**优点**包括：
+
+- **可扩展性**：更容易扩展到多个服务器。
+- **灵活性**：可以适应多变的数据模型和不断变化的数据类型。
+- **高性能**：特别是在处理大量数据和高并发请求时。
+
+NoSQL数据库的**缺点**可能包括：
+
+- **一致性**：可能牺牲事务的严格一致性来获取性能和可扩展性。
+- **复杂的数据关联**：对于需要复杂关联的数据，关系型数据库可能更加适合。
+- **成熟度和工具**：相对于成熟的关系型数据库，NoSQL解决方案可能工具和支持较少。
+
+NoSQL数据库牺牲严格一致性主要是为了提高系统的可扩展性和可用性。这是基于CAP定理的权衡，CAP定理指出，在一个分布式系统中，不可能同时保证以下三个要素：
+
+1. **一致性（Consistency）**：每次读取都会返回最近一次写入的数据。
+2. **可用性（Availability）**：每个请求都会收到一个（不管是成功还是失败的）响应。
+3. **分区容忍性（Partition tolerance）**：系统可以在任何网络分区故障的情况下继续运行。
+
+根据CAP定理，一个分布式系统只能同时满足这三个属性中的两个。NoSQL数据库通常选择可用性和分区容忍性，因为这对于大规模、分布式的系统是必要的。这意味着在某些情况下，为了保持系统的响应能力和持续服务，它们可能允许数据在短时间内是不一致的。这种设计选择是为了让系统在面对网络分区或其他故障时仍能继续操作，即使这意味着某些用户可能短暂地看到过时或不一致的数据。
+
+这种不一致性通常是通过“最终一致性”来缓和的，这是一种保证，在没有新的更新的情况下，数据库最终会变得一致的方式。
+## 4.2 Major Types of NoSQL systems
+NoSQL数据库可以根据它们管理数据的方式分为几种主要类型：
+1. **键值存储（Key-Value Stores）**：
+    - 最简单的NoSQL数据库，以键值对的形式存储数据。
+    - 例子：Redis, Amazon DynamoDB, Riak。
+2. **文档存储（Document Stores）**：
+    - 存储半结构化数据的文档，通常是JSON或XML格式。
+    - 例子：MongoDB, CouchDB, Firestore。
+3. **宽列存储（Wide-Column Stores）**：
+    - 以列族为中心存储数据，允许存储大量数据。
+    - 例子：Apache Cassandra, HBase, Google Bigtable。
+4. **图形数据库（Graph Databases）**：
+    - 使用图结构存储实体以及实体之间的关系，适合复杂的关系数据。
+    - 例子：Neo4j, JanusGraph, Amazon Neptune。
+### Key-Value Stores
+#### Data Model
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240148996.png)
+键值存储的一些特点包括：
+1. **无模式**：键值存储通常不具备固定的模式或结构，数据可以以任何形式存储为值，如字符串、JSON、BLOB等。
+2. **无关联**：它们不提供原生的方式来直接关联不同的键值对或模仿SQL中的表间连接。关系必须由应用逻辑来管理。
+3. **单一的数据集合**：虽然某些键值存储系统可能允许你创建类似于“表”的不同命名空间或数据集合，但这些通常不提供连接功能。
+4. **自定义索引**：在键值存储中，创建复杂索引需要应用层面的设计，比如通过维护一个特殊的键，它的值包含了需要被索引的数据项的键的列表。
+**键值存储的优势**:
+1. **性能**：键值存储提供非常快速的读写能力，因为它们通过键直接访问值，通常这些操作可以在O(1)时间内完成。
+2. **可扩展性**：键值存储通常设计为易于水平扩展，能够处理更多的负载通过简单地增加更多的节点。
+3. **简单性**：由于其简单的数据模型，键值存储通常更易于设置和维护。
+4. **灵活性**：键值存储不需要预定义的模式，所以你可以随意存储不同结构的数据。
+
+- Stores associations between keys and values
+- Keys are usually primitives and can be queried
+- Values can be primitive or complex; usually cannot be queried
+#### Operations
+- Very simple API
+	- `get` - fetch value associated with key
+	- `put` - set value associated with key
+- Optional operations
+	- `multi-get`
+	- `multi-put`
+	- `range queries`
+- Suitable for:
+	- Small continuous read and writes
+	- Storing 'basic' information, or no clear schema
+	- When complex queries are not required / rarely required
+#### Implementation
+- Non-persistent:
+	- Just a big in-memory hash table
+- Persistent:
+	- Data is stored persistently to disk
+### Document Stores
+文档存储NoSQL数据库是一种旨在存储、检索和管理面向文档的信息的数据库系统。这里的“文档”并非指文字处理文档，而是指一种可以包含复杂数据结构的数据记录。文档通常以JSON、BSON（二进制JSON）、XML等格式存储，并且每个文档都可以有一个独特的结构。
+
+以下是文档存储NoSQL数据库的一些关键特点：
+1. **灵活的数据模型**：文档可以包含嵌套的数据结构，如数组和子文档。由于没有固定的模式，文档的结构可以动态更改。
+2. **自描述性**：文档存储通常是自描述的，意味着数据结构描述包含在文档本身中，这使得数据的解析和理解变得直观。
+3. **查询能力**：大多数文档数据库提供了强大的查询语言，允许用户执行复杂的搜索、聚合和过滤操作。
+4. **索引**：为了提高查询性能，文档数据库支持在一个或多个文档的属性上建立索引。
+5. **扩展性**：文档数据库也设计为易于水平扩展，允许通过增加更多的服务器来增加数据库的容量和吞吐量。
+6. **API接口**：文档数据库通常提供丰富的API用于交互，这些API可以是RESTful的，也可以是数据库专有的查询语言。
+
+文档数据库的一个主要优势在于其灵活性。它们允许开发者在不需要预先定义表结构的情况下存储和查询数据，这对于快速开发和迭代、以及处理非结构化或半结构化数据非常有利。
+
+然而，文档数据库也有其局限性，如它们可能不支持像传统SQL数据库那样复杂的事务管理，而且当涉及到多个文档或集合时，维护数据一致性可能会更加复杂。
+
+代表性的文档存储NoSQL数据库包括：
+- **MongoDB**：存储BSON文档，并提供丰富的查询语言和索引功能。
+- **CouchDB**：使用JSON进行存储，并提供MapReduce作为查询和索引机制。
+- **Firestore**：Google提供的文档数据库，以实时同步和服务器端逻辑著称。
+#### Data Model
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240157401.png)
+- A database can have multiple **collections**
+- Collections have multiple **documents**
+- A document is a JSON-like object: it has **fields and values**
+	- Different documents can have different fields
+	- Can be nested: i.e. JSON objects as values
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240158758.png)
+#### Querying
+- Unlike basic key value stores, document stores allow some querying based on the content of a document
+- CRUD = Create, Read, Update, Delete
+##### Create
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240159859.png)
+##### Read
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240159879.png)
+##### Update
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240159380.png)
+##### Delete
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240159910.png)
+### Wide Column Stores
+宽列存储（Wide-Column Store）是NoSQL数据库的一种类型，它兼具了传统关系数据库和非关系型键值存储的一些特性。这种数据库类型特别适用于处理大量数据以及需要高度可扩展性和灵活性的应用。与传统的关系型数据库不同，宽列存储在逻辑上通过列族而非行来组织数据。
+
+以下是宽列存储的一些核心特点：
+1. **列族（Column Families）**：
+    - 数据被存储在列族中，每个列族是一个容器，存储着相关的列。
+    - 列族内的列可以在每一行中不同，允许每行有不同的列数和类型，这带来了极大的灵活性。
+2. **行键（Row Keys）**：
+    - 每一行由一个唯一的行键（Row Key）标识，可以用来快速访问和检索数据。
+3. **动态列**：
+    - 每行可以有数千甚至数百万列，列可以在运行时动态地增加到任何行中，不需要预先定义模式。
+4. **可扩展性**：
+    - 宽列存储设计用于水平扩展，可以通过增加更多的服务器节点来提高容量和吞吐量。
+5. **优化读/写性能**：
+    - 通过将相关数据存储在相同的列族中，宽列存储可以优化数据的读取和写入性能。
+6. **分布式架构**：
+    - 它们通常自带分布式架构，能够处理大规模数据分布在多个物理位置。
+
+宽列存储的一些典型应用场景包括：
+- **大数据分析**：由于其能够处理大量的动态列，它适合于数据挖掘和分析。
+- **时间序列数据**：例如，股票行情、事件日志和监控数据。
+- **推荐系统**：可以存储和处理用户与内容的多维关系。
+
+一些著名的宽列存储NoSQL数据库包括：
+- **Apache Cassandra**：提供高可用性和可扩展性，适用于需要容错的应用。
+- **Google Bigtable**：是Google的分布式存储系统，用于管理大型数据集。
+- **HBase**：建立在Hadoop文件系统之上，用于提供随机实时读/写访问大数据。
+#### Data Model
+- Rows describe entities
+- Related groups of columns are grouped as **column families**
+- **Sparsity**: if a column is not used for a row, it doesn't use space
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240201955.png)
+### Graph Databases
+图形数据库（Graph Databases）是一种NoSQL数据库，它们使用图论的概念存储、查询和操作数据。在图形数据库中，数据结构被视为点（Nodes）、边（Edges）和属性（Properties）。它们特别适用于表示和查询数据之间复杂的关联和网络。
+
+**核心概念**：
+1. **节点（Nodes）**：
+    - 节点代表实体，如人、业务、账户、计算机等。
+    - 每个节点可以有一个或多个标签（Labels）来表示不同的类别或类型。
+    - 节点可以包含多个属性（键值对），用以存储关于实体的信息。
+2. **边（Edges）**：
+    - 边代表节点之间的关系。
+    - 每条边都有一个类型，表明连接的节点之间的关系性质，如“朋友”、“属于”或“访问”。
+    - 边也可以有属性，提供有关关系的更多信息，如权重、成本、距离等。
+3. **属性（Properties）**：
+    - 节点和边都可以有属性，这些属性以键值对的形式存在。
+    - 属性为图数据添加了丰富的语义。
+4. **索引（Indexes）**：
+    - 图形数据库通常支持通过索引来加速对节点和边的查询。
+
+**图形数据库的特点**：
+1. **关系优先**：图形数据库将关系作为一等公民，这与其他数据库系统不同，在那里关系通常是通过外键或特殊的索引来表示的。
+2. **性能**：对于深度连接查询和复杂的关系网络，图形数据库可以提供卓越的性能。
+3. **灵活性**：图结构的自然灵活性使得添加新的关系和节点不需要更改现有的数据模式。
+4. **直观性**：图形数据库的结构使得数据模型和现实世界的网络直观对应，方便理解和查询。
+
+**流行的图形数据库**：
+
+- **Neo4j**：最流行的图形数据库之一，提供了一个富有表达力的图查询语言Cypher。
+- **JanusGraph**：开源的，可扩展的图形数据库，支持各种后端存储。
+- **Amazon Neptune**：AWS提供的图形数据库服务，支持开放图形查询语言（Gremlin）和RDF查询语言（SPARQL）。
+![image.png](https://images.wu.engineer/images/2023/11/23/202311240202326.png)
+### Vector Databases
+矢量数据库（Vector Databases）是专门设计来存储和查询矢量空间数据的数据库系统。在这个上下文中，“矢量”通常指的是多维的数值数组，它们代表了数据点在特定的特征空间中的位置。这种类型的数据库在处理大规模机器学习和人工智能任务中尤为重要，尤其是在执行相似性搜索时。
+
+**核心概念**：
+1. **特征向量（Feature Vectors）**：
+    - 在机器学习和搜索领域，数据项经常被转换成特征向量，这些特征向量表示了数据项的特性或属性。
+2. **相似性搜索（Similarity Search）**：
+    - 矢量数据库的主要功能之一是快速找到与给定查询向量相似的向量。相似性度量通常使用余弦相似度、欧几里得距离等方法。
+3. **索引和优化**：
+    - 为了高效地进行相似性搜索，矢量数据库使用多种索引和优化技术，如树结构、哈希技术或分区策略。
+
+**矢量数据库的特点**：
+1. **高效的搜索性能**：
+    - 矢量数据库能够在高维空间中快速执行k最近邻（k-NN）搜索，这对于实时推荐系统、图像或视频检索等是至关重要的。
+2. **大规模数据处理**：
+    - 它们可以处理数以亿计的向量，并且在这样的规模上仍能保持查询的响应时间。
+3. **机器学习集成**：
+    - 矢量数据库经常与机器学习模型和流程紧密集成，以便直接利用模型生成的特征向量。
+
+- Store **vectors**
+	- Usually dense, numerical, and high-dimensional
+- Allow fast **similarity search**, i.e., given a query, retrieve similar neighbours from the database
+- DB features: scalability, real-time updates, replication
+## 4.3 Key Concepts
+- Strong consistency
+	- any reads immediately after an update must give the same result on all observers
+	- all reader read new value
+- Eventual consistency
+	- If the system is functioning and we wait long enough, eventually all reads will return the last written value
+	- readers may read old value
+
+- ACID
+	- Relational DBMS provide stronger (ACID) guarantees
+	- **ACID**是传统关系型数据库的设计理念，它强调的是数据操作的可靠性和一致性：
+		1. **原子性（Atomicity）**：事务中的所有操作都是一个不可分割的工作单位，要么全部完成，要么全部不做。
+		2. **一致性（Consistency）**：事务执行结果必须使数据库从一个一致性状态转变到另一个一致性状态。
+		3. **隔离性（Isolation）**：并发执行的事务之间不会互相影响。
+		4. **持久性（Durability）**：一旦事务提交，其所做的修改将永久保存在数据库中。
+- BASE
+	- In many NoSQL system provide weaker "BASE" approach
+	- **BASE**则是许多NoSQL数据库系统遵循的理念，它更强调系统的可用性和容错性：
+		1. **基本可用（Basically Available）**：系统保证可用性，但可能因为响应时间的延迟或系统功能的减少而不是完全可用。
+		2. **软状态（Soft state）**：系统的状态可能会随时间而改变，即使没有输入，系统状态仍然有可能变化（例如，由于数据复制而导致的状态变化）。
+		3. **最终一致性（Eventual consistency）**：系统保证，如果没有新的更新操作，数据最终将达到一致状态。
+
+- Duplication (Denormalisation)
+	- 去规范化（Denormalization）是数据库优化的一个过程，特别是在关系型数据库的上下文中。去规范化涉及减少数据库的规范化级别，通常通过合并表格、添加冗余数据或组合字段来实现。其主要目的是提高数据库的查询性能，尤其是在大数据量和复杂查询的情况下。
+	- 在典型的关系型数据库中，规范化是一个将数据组织到多个相关表中以减少冗余和依赖性的过程。规范化有很多级别（正规形式），每个级别都旨在减少数据冗余和提高数据完整性。然而，高度规范化可能导致性能问题，因为复杂的查询可能需要多个表之间的连接操作，这在大型数据库中可能会非常耗时。
+	- 去规范化的策略包括：
+		1. **添加冗余列**：在一个表中包含来自另一个表的数据，以避免连接操作。
+		2. **合并表**：将多个相关的表合并为一个表，以减少查询中的连接数量。
+		3. **预计算聚合**：存储计算结果（如总和、平均值等）而不是在每次查询时都重新计算。
+		4. **创建冗余索引**：创建额外的索引来加速查询，即使这些索引会占用更多的存储空间。
+	- 去规范化的缺点是可能导致数据更新、插入和删除操作的复杂性增加，因为需要维护额外的冗余数据的一致性。此外，它也增加了存储需求，因为相同的数据会在多个地方存储副本。
+	- 在设计数据库和数据存储解决方案时，去规范化是一种常见的权衡策略，它需要在查询性能和数据冗余之间找到平衡。
