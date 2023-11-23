@@ -481,7 +481,7 @@ By aggregating tuples across map tasks, this reduces disk and memory I/O. Howeve
 >
 >    - **功能**：此方法在 Mapper 的每个实例完成所有的 `map` 方法调用后被执行。它的目的是在所有输入都被处理后发出累积的键值对。
 >
->    - ```
+>     ```
 >      for ((k,v) <- counts)
 >      ```
 >
@@ -609,4 +609,200 @@ Q: What if namenode’s data lost?
 A: All files on the filesystem cannot be retrieved since there is no way to reconstruct them from the raw block data. Fortunately, Hadoop provides 2 ways of improving resilience, through backups and secondary namenodes (out of syllabus, but you can refer to Resources for details)
 
 ![image-20231010200417781](https://images.wu.engineer/images/2023/10/10/image-20231010200417781.png)
+
+# 3 - Data Mining
+## 3.1 Recap
+#### Partition Step
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231339771.png)
+
+- Note that key A went to reducer 1, and ket B went to reducer 2
+- By default, the assignment of keys to reducers is determined by a **hash function** `h()`
+	- e.g., key `k` goes to reducer `hash(k) % num_reducer`
+- User can optionally implement a custom partition, e.g., to better spread out the load among reducers (if some keys have much more values than others)
+#### Combiner
+- The user must ensure that the combiner does not affect the correctness of the final output, whether the combiner runs 0, 1, or multiple times.
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231342316.png)
+
+#### MapReduce Implementation
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231343993.png)
+
+#### Preserving State in Mappers/Reducers
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231343686.png)
+
+#### Combining HDFS and Hadoop
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231344984.png)
+
+## 3.2 Secondary Sort
+- **Problem**: each reducer's value arrive unsorted. But what if we want them to be sorted?
+- **Solution**: define a new 'composite key' as (K1, K2), where K1 is the original key ("natural key"), and K2 is the variable we want to use to sort
+	- Partitioner: now needs to be customised, to partition by K1 only, not (K1, K2)
+
+> 在MapReduce框架中，数据是以键值对(key-value pairs)的形式进行处理的。在这个过程中，Map阶段生成的键值对会被分组(grouped)和排序(sorted)，然后传递给Reduce阶段。默认情况下，MapReduce只会按键（key）进行排序，这称为“自然排序”。
+> 
+> 如果我们需要以一种额外的方式对值进行排序，则这被称作为二次排序"secondary sort":
+> - 定义一个新的“复合键”（composite key），格式为(K1, K2)，其中K1是原始键（也称为“自然键”），K2是我们希望用于排序的变量。在这种情况下，复合键将会影响如何对数据进行分区和排序：
+> 	- **Partitioner**: 需要自定义分区器，使其仅按K1进行分区，而不是按复合键(K1, K2)分区。这样可以保证相同的K1会被发送到同一个reducer，但是在reducer内部，数据会根据K2的值进行排序。
+> 这样，每个reducer接收的数据就会首先根据K1分组，然后在每个组内根据K2排序，实现了二次排序的目的
+
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231350907.png)
+
+### Example
+Assume we want to compute some statistics (median, 25% quantile) of the data **grouped by month**.
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231353189.png)
+
+Our map function emits (month, temperature) tuples, so that tuples from the same month go to the same reducer.
+However, the values (temperature) arrive at each reducer is **unsorted**.
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231353129.png)
+
+Now we use (month, temperature) as **composite key**, but **without changing the partitioner**. 
+The 4 tuples below have 4 different "values" of the composite key.
+Recall that they will be partitioned by hashing the composite key values. So data with the same **primary key** may be sent to different reducers, which we don't want. 
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231355203.png)
+
+Finally, **secondary sort** uses (month, temperature) as composite key, and uses a **custom partitioner**, to partition by month only.
+Now we see that:
+- Data for the same month goes to the same reducer
+- At each reducer, data arrives sorted by temperature, since the MapReduce framework always **sort the data by the key** before giving it to each reducer
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231358050.png)
+
+## 3.3 Relational Databases
+- A relational database is comprised of tables
+- Each table represents a relation = collection of tuples (rows)
+- Each tuple consists of multiple fields
+
+### Projection
+```SQL
+SELECT
+	x,
+	y
+FROM
+	Sales
+```
+
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231400553.png)
+
+### Projection in MapReduce
+- **Map**: take in a tuple (with tuple ID as key), and emit new tuples with appropriate attributes
+- No reducer needed (=> no need shuffle step)
+
+### Selection
+```SQL
+SELECT * FROM Sales WHERE (price > 10)
+```
+
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231402083.png)
+### Selection in MapReduce
+- **Map**: take in a tuple (with tuple ID as key), and emit only tuples that meet the predicate
+- No reducer needed
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231403471.png)
+
+
+### Group By
+- Example: What is the average sale price per product?
+- In SQL:
+	- `SELECT product_id, AVG(price) FROM sales GROUP BY product_id`
+- In MapReduce:
+	- Map over tuples, emit <product_id, price>
+	- Framework automatically groups these tuples by key
+	- Compute average in reducer
+	- Optimize with combiners
+
+### Relational Joins (Inner Join)
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231406330.png)
+
+### Broadcast (Map) Join
+- Requires one of the table to fit in memory
+	- All mappers store a copy of the small table (for efficiency: we convert it to a hash table, with keys as the keys we want to join by)
+	- They iterate over the big table, and join the records with the small table
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231408758.png)
+
+### Reduce-side (Common) Join
+- Does not require a dataset to fit in memory, but slower than broadcast join
+	- Different mappers operate on each table, and emit records, with keys as the variable to join by
+- In reducer: we can use **secondary sort** to ensure that all keys from table X arrive before table Y
+	- Then, hold the keys from table X in memory and cross them with records from table Y
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231409707.png)
+
+### 3.3 Similarity Search
+- We define "near neighbours" as points that are a "small distance" apart
+- To measure the distance between objects x and y, we need a function `d(x, y)` which we call a "distance measure"
+- **Similarity measures** are the opposite: lower distance = higher similarity, and vice versa
+
+### Jaccard Similarity and Distance
+- Jaccard Similarity
+$$
+S_{Jaccard}(A, B) = \frac {|A\cap B|} {|A \cup B|}
+$$
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231418863.png)
+
+- Jaccard Distance
+$$
+d_{Jaccard}(A,B) = 1 - s_{Jaccard}(A,B)
+$$
+### Essential Steps for Similar Docs
+1. **Shingling**: Convert document to sets of short phrases ("shingles")
+2. **Min-Hashing**: Convert these sets to short "signatures" of each document, while preserving similarity
+	- A signature is just a block of data representing the content of a document in a compressed way
+	- Document with the same signature are **candidate pairs** for finding near-duplicates
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231421220.png)
+> **Shingling**（分词）：这一步将文档转换为一组短语（称为“shingles”或“k-grams”）。每个shingle通常是文档中连续的k个项（可以是字、词或字符）。例如，对于句子“The quick brown fox jumps over the lazy dog”，如果我们使用2-grams（bigrams）作为shingles，那么一个可能的shingle集合包括{"The quick", "quick brown", "brown fox", ...}。这一步的目的是创建文档的特征集，以便于比较。
+> 
+> **Min-Hashing**（最小哈希）：这一步的目的是将上一步得到的shingle集合转换为文档的“签名”（signature），这些签名在压缩数据的同时保留了文档间的相似性信息。签名是一个较短的数据块，它代表了文档内容的摘要。Min-hashing算法通过对每个文档的shingle集合使用哈希函数，将其转换为一个较短的哈希值序列（即签名），而且这一转换过程保留了原始shingle集合间的相似度结构。具有相同或相似签名的文档被认为是“候选对”（candidate pairs），这意味着它们很可能是近似重复的文档。
+> 
+> 这个过程是文档相似性检测的两个关键步骤：首先是将文档转换为一组能够代表其内容特征的shingles，然后是使用min-hashing算法将这些shingles集合转换为签名，这些签名可以用来有效地评估文档间的相似性。这个方法在处理大规模数据集时特别有效，因为它大大减少了需要比较的数据量。
+
+### Shingles
+- A **k-shingle** (or **k-gram**) for a document is a sequence of k tokens that appears in the doc
+- *Examples*: `k=2, document D_1 = "the cat is glad"`, set of 2 shingles: $S(D_1)$ = {"the cat", "cat is", "is glad"}
+- Each document $D_i$ can be thought of as a set of its k-shingles $C_i$
+	- E.g. D = "the cat is" => C = {"the cat", "cat is"}
+
+- Often represented as a matrix, where columns represent documents, and shingles represent rows
+- We measure similarity between documents as **Jaccard Similarity**:
+$$
+sim(D_1, D_2) = \frac {|C_1 \cap C_2|} {|C1 \cup C_2|}
+$$
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231428517.png)
+
+### MinHash
+- Suppose we have N=1 million documents
+- Naively, we would have to compute **pairwise Jaccard similarities** for every pair of docs
+- MinHash gives us a *fast approximation* to the result of using Jaccard similarities to compare all pairs of documents
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231430155.png)
+
+- **Key Idea**: hash each column C to a small *signature* `h(C)`
+	- `h(C)` is small enough that the signature fits in RAM
+	- highly similar document usually have the same signature
+- **Goal**: Find a hash function `h()` such that:
+	- If `sim(C_1, C_2)` is high, then with high probability, `h(C_1) = h(C_2)`
+	- Vice versa
+
+Steps:
+- Given a set of shingles, {(the cat), (cat is), (is glad)}
+	1. We have a **hash function** h that maps each shingle to an integer:
+	`h("the cat")=12, ...`
+	2. Then compute the minimum of these: `min(12, 74, 48) = 12`
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231434831.png)
+- Recall that we want to ensure that highly similar document have high probability to have the same MinHash signature
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231435813.png)
+
+- Candidate pairs: the document with the same final signature are "candidate pairs". We can either directly use them as out final output, or compare them one by one to check if they are actually similar pairs.
+- Extension to multiple hashes: in practice, we usually use multiple hash functions (e.g N=100), and generate N signatures for each document. "Candidate pairs" can be defined as those matching a "sufficient number" among these signature.
+
+## 3.4 Clustering
+- **Goal**: 
+	- Clustering separates *unlabelled data* into groups of similar points
+	- Clusters should have high intra-cluster similarity, and low inter-cluster similarity
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231439355.png)
+
+### K-Means Algorithm
+#### Initialisation
+- Pick K random points as centers
+![image.png](https://images.wu.engineer/images/2023/11/23/202311231440985.png)
+
+#### Repeat
+1. **Assignment**: assign each point to nearest cluster
+2. **Update**: move each cluster center to the **average** of its assigned points
+**Stop** if no assignments change
+
 
