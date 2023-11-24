@@ -1053,3 +1053,99 @@ NoSQL数据库可以根据它们管理数据的方式分为几种主要类型：
 		4. **创建冗余索引**：创建额外的索引来加速查询，即使这些索引会占用更多的存储空间。
 	- 去规范化的缺点是可能导致数据更新、插入和删除操作的复杂性增加，因为需要维护额外的冗余数据的一致性。此外，它也增加了存储需求，因为相同的数据会在多个地方存储副本。
 	- 在设计数据库和数据存储解决方案时，去规范化是一种常见的权衡策略，它需要在查询性能和数据冗余之间找到平衡。
+# 5 - NoSQL and Basic of Distributed Databases
+## 5.1 Basic Concept of Distributed Databases
+- 分布式数据库是一种可以在网络的不同节点上分布存储数据的数据库系统。在分布式数据库系统中，数据可能被分散在一个网络中的多个物理位置上，而这个网络可以是在同一个物理位置的局部网络，也可以是跨越广泛地理区域的远程网络节点。
+
+- 分布式数据库的主要目的是为了满足以下需求：
+1. 可扩展性：系统应当能够添加更多的机器来处理额外的数据。
+2. 可用性：系统即便在部分故障的情况下也能保持工作。
+3. 耐用性：系统能够保证数据不会因故障而丢失。
+4. 性能：通过数据的分布式存储和并行处理，提高数据库操作的效率
+
+- Why distributed databases?
+	- **Scalability**: allow database sizes to scale simply by adding more nodes (servers)
+	- **Availability / Fault Tolerance**: if one node fails, others can still serve requests
+	- **Latency**: generally, each request is served by the closet replica (node), reducing latency, particularly when the database is distributed over a wide geographical area
+### Data Transparency
+- Users should not be required to know how the data is physically distributed, partitioned, or replicated
+- A query that works on a single node database should still work on a distributed database
+数据透明性是指用户在使用数据库时不需要了解背后的数据如何存储、分区、或复制的细节。这意味着，从用户的视角来看，他们是在与一个单一的、统一的数据库进行交互，尽管实际上数据可能分布在多个不同的节点上。
+
+换句话说，对于用户来说，无论是在单个数据库节点上执行查询，还是在分布式数据库系统上执行，查询的编写方式和结果都应该是一致的。用户的查询应当独立于数据的物理布局，数据库系统的内部机制负责处理数据的定位、访问和管理，对用户完全透明。
+
+这样做的好处是简化了数据库的使用，用户可以专注于查询和数据操作，而不需要担心背后的复杂性。同时，这也提供了数据库管理的灵活性，因为数据库管理员可以在不影响用户的情况下，优化数据的存储和处理。
+### Assumption of Distributed Databases
+- All nodes in a distributed database are well-behaved (i.e., they follow the protocol we designed for them; not "adversarial" or trying to corrupt the database)
+### Distributed Database Architectures
+![image.png](https://images.wu.engineer/images/2023/11/24/202311241755193.png)
+## 5.2 Data Partitioning
+### Table Partitioning
+- Put different tables (or collections) on different machines
+![image.png](https://images.wu.engineer/images/2023/11/24/202311242028786.png)
+- Problem:
+	- scalability - each table cannot be split across multiple machines
+表分区（Table Partitioning）是数据库管理系统中用于管理大型表数据的一种技术。通过这种技术，一个大表被分解为多个更小、更易于管理的逻辑分区，但在逻辑上仍然作为单个表对外呈现。每个分区可以存储在不同的物理位置，且可以单独优化和维护。表分区通常用于提高查询性能、优化数据加载、提高数据维护效率以及改善备份恢复操作的速度。
+表分区的主要优点包括：
+- **性能提升**：查询可以仅在相关的分区上执行，减少了数据扫描的范围。
+- **维护简化**：对于数据的维护操作（如备份、恢复、清理旧数据）可以在分区级别进行，而不必对整个表操作。
+- **数据分布优化**：可以将不同的分区存放在不同的存储介质上，根据访问频率和性能要求进行优化。
+### Horizontal Partitioning
+- Different tuples are stored in different nodes
+- Also called 'sharding'
+- **Partition Key** (or shard key) is the variable used to decide which node each tuple will be stored on: tuples with the same shard key will be on the same node.
+	- How to choose partition key?
+		- If we  often need to filter tuples based on a column, or "group by" a column, then that column is a suitable partition key
+水平分区（Horizontal Partitioning）也称作分片（Sharding），以及如何选择合适的分区键（Partition Key）或分片键（Shard Key）。
+1. **不同的元组存储在不同的节点**： 这意味着在一个分布式数据库系统中，表中的每一行（或称作元组）根据某种规则，被分散存储在不同的数据库节点上。这些节点可以是同一个数据中心内的不同服务器，也可以是分布在不同地理位置的服务器。
+2. **Partition Key 分区键**（或shard key分片键）： 分区键是用来决定每个元组存储位置的变量。根据分区键的值，数据库管理系统将元组分配到不同的节点上。拥有相同分区键值的元组会被存储在相同的节点上。
+3. **如何选择分区键**： 选择分区键是一个重要的决策，因为它会直接影响查询的效率和系统的扩展性。理想的分区键应该满足以下条件：
+    - **查询过滤**：如果某个列经常被用作查询条件（WHERE子句），那么这个列可能是一个好的分区键。
+    - **分组统计**：如果经常需要按某个列进行分组（GROUP BY子句）进行聚合运算，那么这个列也可能是一个好的分区键。
+    - **负载均衡**：分区键应该能够确保数据和负载在各个节点间均匀分布，避免某个节点数据量过大或查询负载过高。
+![image.png](https://images.wu.engineer/images/2023/11/24/202311242043316.png)
+
+- 分区键的选择:
+	- 假设在电子商务公司中，有一个数据库存储着用户信息,如果我们使用 city_id 为分区键:
+		- 如果我们经常根据城市检索数据,那么这个分区键是可以的.
+		- 如果城市的数量很少: 我们称之为 low cardinality 低基数
+
+#### Range Partition
+- Range Partition: split key based on range of values
+	- Beneficial if we need range-based queries. In the above example, if the user queries for user_id < 50, all the data in partition 2 can be ignored ('partition pruning'); this saves a lot of work
+	- But: range partitioning can lead to imbalanced shards, e.g., if many rows have user_id = 0
+	- Splitting the range is automatically by a balancer (it tries to keep the shards balanced)
+1. **范围分区**： 范围分区是通过确定键值的范围来实现的。数据库系统根据预设的键值范围，把数据分散到不同的分区。例如，user_id 在1到100的用户记录可能存储在分区1，而user_id 在101到200的记录存储在分区2。
+2. **范围查询的效益**： 如果经常需要执行基于范围的查询，例如查询 user_id 小于50的所有用户，那么范围分区非常有用。在这种情况下，查询时可以跳过不包含相关数据的分区（如上例中的分区2），这种方法称为“分区裁剪”（Partition Pruning），它可以显著节省查询处理的工作量。
+3. **可能导致分区不平衡**： 范围分区可能会导致数据分布不均衡。例如，如果大量行的 user_id 都是0，那么这些行都会被存储在同一个分区中，这会导致该分区数据过多，而其他分区数据不足。
+4. **自动的范围划分**： 通常，分布式数据库系统会有一个“平衡器”（Balancer）功能，自动调整分区范围，试图保持各个分区的数据量平衡。这意味着系统会监控数据的分布情况，并在必要时重新划分分区范围，以保持分区之间的均衡。
+![image.png](https://images.wu.engineer/images/2023/11/24/202311242122129.png)
+#### Hash Partition
+- **Hash Partition**: hash partition key, then divide that into partitions based on ranges
+	- Hash function automatically spreads out partition key values roughly evenly
+- 哈希分区是一种使用哈希函数来决定数据存储位置的方法。在这种策略中，系统会根据分区键的哈希值将数据项分配到不同的节点或分区上。哈希分区的关键点在于，它使用一个哈希函数将键值域映射到一个固定范围的分区标识符上。它通常能够保证数据被均匀分布在所有的分区上，避免了范围分区可能出现的数据倾斜问题。
+### Consistent Hashing
+- Think of the output of the hash function as lying on a circle:
+![image.png](https://images.wu.engineer/images/2023/11/24/202311242124109.png)
+- How to partition: each node has a 'marker' (rectangles)
+	- Each tuple is placed on the circle, and assigned to the node that comes clockwise after it
+- To delete a node, we simply re-assign all its tuples to the node clockwise after this node
+- Similarly, to *add a node*, we add a new marker, and re-assigning all tuples which now belong to the new node
+- **Simple replication strategy**: replicate a tuple in the next few additional nodes clockwise after the primary node used to store it
+- Multiple markers: we can also have multiple markers per node. For each tuple, we still assign it to the marker nearest to it in the clockwise direction.
+	- Benefit: when we remove a node, its tuples will not all be reassigned to the same node. So, this can balance load better
+1. **环形哈希空间**：
+    - 将哈希函数的输出想象为分布在一个圆环上，这个圆环代表了一个连续的哈希值空间。
+2. **如何进行分区**：
+    - 每个节点在这个圆环上有一个“标记”（通常可以想象为一个矩形或点），代表其在哈希空间上的位置。
+    - 每个元组（数据项）根据其哈希值被放置到圆环上的某个位置，然后分配给顺时针方向上的第一个节点标记。
+3. **删除节点**：
+    - 当需要删除一个节点时，圆环上的这个节点标记被移除，原本分配给这个节点的所有元组会被重新分配给顺时针方向上的下一个节点。
+4. **添加节点**：
+    - 相似地，添加一个新节点时，在圆环上为其增加一个新的标记，并将现在应该属于这个新节点的元组重新分配给它。
+5. **简单复制策略**：
+    - 可以通过在顺时针方向上的几个额外节点中复制元组来实现元组的简单复制，以增加数据的可用性和耐久性。
+6. **多重标记**：
+    - 每个节点可以在圆环上拥有多个标记。对于每个元组，依然是分配给顺时针方向上最近的标记。
+    - 这样做的好处是，当删除一个节点时，其元组不会全部重新分配给同一个节点，这有助于更好地平衡负载。
+## 5.3 Query Processing in NoSQL
