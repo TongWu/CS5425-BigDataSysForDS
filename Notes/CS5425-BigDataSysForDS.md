@@ -1149,3 +1149,48 @@ NoSQL数据库可以根据它们管理数据的方式分为几种主要类型：
     - 每个节点可以在圆环上拥有多个标记。对于每个元组，依然是分配给顺时针方向上最近的标记。
     - 这样做的好处是，当删除一个节点时，其元组不会全部重新分配给同一个节点，这有助于更好地平衡负载。
 ## 5.3 Query Processing in NoSQL
+### Architecture of MongoDB
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251512094.png)
+
+- MongoDB是一种文档型数据库
+- MongoDB的分布式架构主要由三个核心组件构成：路由器（Routers），配置服务器（Config Servers）和副本集（Replica Sets）。这种架构支持MongoDB的分片功能，允许数据库跨多个服务器进行横向扩展。下面是每个组件的具体作用：
+#### 路由器（Routers）
+- 路由器在MongoDB中通常指的是`mongos`实例。`mongos`的作用是作为前端服务，接受客户端的数据库操作请求，并将这些请求路由到正确的数据分片上。
+- 客户端不直接与存储数据的节点通信，而是通过`mongos`来进行。当一个查询被执行时，`mongos`会确定需要访问哪些分片，并将查询转发到这些分片上。
+- 在一个拥有多个分片的大型系统中，可能会有多个`mongos`实例来分散客户端请求的负载。
+#### 配置服务器（Config Servers）
+- 配置服务器存储了整个MongoDB集群的元数据和配置信息。这包括分片的信息、路由策略、副本集的配置等。
+- 在集群中，通常有三个配置服务器实例来保证高可用性和数据一致性。
+- `mongos`查询这些配置信息来了解数据的分布情况，并据此将客户端请求路由到正确的分片。
+#### 副本集（Replica Sets）
+- 副本集是MongoDB提供数据冗余和高可用性的方式。一个副本集包含了多个数据节点，其中一个是主节点，其他是从节点。
+- 主节点处理所有的写操作，而从节点则复制主节点的数据变更。这样可以在主节点出现故障时自动切换到从节点，继续提供服务，无需数据丢失的风险。
+- 副本集也可以用于读取分离，即读操作可以在从节点上进行，分担主节点的读取压力。
+### Example of Read or Write Query
+- For example, a query `find({'class': 'cs5425'})` is pushed from the app
+	1. Query is issued to a **router** (`mongos`) instance
+	2. With help of **config server**, `mongos` determines which shard (**replica set**) to query
+	3. Query is sent to the relevant shards (partition pruning)
+		- 分区裁剪（Partition Pruning）是数据库查询优化器用来提高查询效率的一种技术。当查询操作针对一个分区表执行时，查询优化器会分析查询条件，以决定是否有些分区可以被排除在查询之外，因为它们不包含符合条件的数据。这样，数据库在执行查询时就不会扫描这些不相关的分区，从而节省了时间和计算资源。
+		- Example: when reading a specific value of the shard key, the config server can determine that the query only needs to go to one shard (the one that contains the value of the shard key); writes are similar
+		- But if the query is based on a key other than the shard key, which is relevant to all shards, and the query will go to all shards
+	4. Shards run query on their data, and send results `{'name': 'bob', 'class': 'cs5425'` back to `mongos`
+	5. `mongos` merge the query results and returns the merged results to the application
+### Replication in MongoDB
+- Common configuration: 1 primary, 2 secondaries
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251532107.png)
+- Write operation:
+	- The *primary* receives all write operations
+	- Records writes onto its 'operation log'
+	- Secondaries will then replicate this 'operation log', and apply it to their local copies of the data (which ensuring data is synced), then acknowledge the operation to the primary
+- Read operation:
+	- The user can configure the "read preference", which decides whether we can read from secondaries (this is the default), or the primary
+	- Allowing reading from secondaries can **decrease latency** and **distribute load** (improving throughput), but allows for reading *stale data* (only for eventual consistency)
+- Elections:
+	- If the primary node *fails*, the nodes "conduct and election", which is a protocol to choose one of the secondaries to be promoted to primary
+## 5.4 Conclusion: Reasons for Scalability & Performance of NoSQL
+- **Horizontal partitioning**: as we get more and more data, we can simply partition it into more and more shards (even individual tables becomes very large)
+	- Horizontal partitioning improves speed due to parallelisation
+- **Duplication**: Unlike relational DBs where queries may require looking up multiple tables (joins), using duplication in NoSQL allows queries to go to only one collection
+- Relaxed consistency guarantees: prioritise availability over consistency - can return slightly stale (wrong, un-updated) data
+
