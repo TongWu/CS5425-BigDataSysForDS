@@ -1194,3 +1194,225 @@ NoSQL数据库可以根据它们管理数据的方式分为几种主要类型：
 - **Duplication**: Unlike relational DBs where queries may require looking up multiple tables (joins), using duplication in NoSQL allows queries to go to only one collection
 - Relaxed consistency guarantees: prioritise availability over consistency - can return slightly stale (wrong, un-updated) data
 
+# 6 - Spark I: Basics
+## 6.1 Introduction and Basics
+### Motivation: Hadoop vs Spark
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251620074.png)
+- Issues with Hadoop MapReduce
+	- **Network and disk I/O costs**: intermediate data has to be written to local disks and shuffled across machines, which is *slow*
+	- **Not suitable for iterative processing**(i.e., modifying small amounts of data repeatedly): such as interactive workflows, as each individual step has to be modelled as a MapReduce job.
+- Spark Stores most of its intermediate results in memory, making it much faster, especially for iterative processing.
+	- When memory is insufficient, Spark **spills to disk** which requires disk I/O
+Hadoop在MapReduce的过程中，中间数据需要被写入到磁盘，并在机器间进行数据洗牌，这个过程是缓慢的。因为每次任务运行完之后，输出都需要写到磁盘，再被下一个任务读取，这造成了高磁盘开销。
+同时，MapReduce不适合迭代处理，迭代处理指的是多次地对数据集进行操作，每次只修改一小部分数据。在Hadoop中，迭代处理的每一步都会被创建为一个独立的MapReduce任务，这使得效率变得低下。
+
+**Spark**设计了一种不同的数据处理模型，它能够将大部分中间结果存储在内存中，这使得数据处理速度大大提升，尤其是对于需要多次迭代的计算任务，例如图算法或者机器学习算法。因为这些任务需要多次读取和处理数据，使用Spark可以显著减少读写磁盘的次数，从而提高速度。
+当内存不足以存储所有中间结果时，Spark会将数据“溢出”到磁盘，这仍然需要磁盘I/O，但这样的设计意味着只有在必要时才会访问磁盘，而不是像Hadoop那样的频繁磁盘读写。
+### Spark Components and API Stack
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251620090.png)
+### Spark Architecture
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251621778.png)
+- **Driver Process** responds to user input, manages the Spark application etc., and distributes work to **Executers**, which run the code assigned to them and send the results back to the driver
+- **Cluster Manager** (can be Spark's standalone cluster manager, YARN, Mesos or Kubernetes) allocates resources when the application requests it
+- In **local mode**, all these processes run on the same machine
+- **驱动进程(Driver Process)**:
+	- 驱动进程是Spark应用程序的主控制节点。它负责响应用户的输入，管理Spark应用程序的生命周期（如启动、停止），并且负责将工作分配给执行器。
+	- 驱动进程执行用户编写的主程序，并且创建出一个`SparkContext`对象。这个`SparkContext`会与集群管理器(Cluster Manager)通信，申请资源并在资源被分配后，将代码任务分发给集群中的执行器（Executors）。
+- **执行器(Executer)**:
+	- 执行器是在集群中的工作节点上运行的进程，它们负责执行由驱动进程(Driver Process)分配给它们的代码，并返回计算结果。
+	- 每个执行器负责处理分配给其的数据，并执行任务。执行器还负责存储它们计算的结果数据，这些数据可能是RDDs（弹性分布式数据集）的一部分，或者是广播变量和累加器。
+- **集群管理器（Cluster Manager）**：
+	- 集群管理器负责在Spark应用程序请求时分配计算资源。。
+	- 集群管理器的主要角色是在计算资源（如CPU和内存）和集群中可用的物理机器之间进行资源调度。
+- **本地模式（Local Mode）**：
+	- 当Spark在本地模式下运行时，上述所有的进程（驱动进程、执行器、甚至是模拟的“集群管理器”）都会在同一台机器上运行。
+### Evolution of Spark APIs
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251631816.png)
+- RDD (Resilient Distributed Datasets) 弹性分布式数据集:
+	- A collection of JVM objects
+	- Functional operators (map, filter, etc.)
+- DataFrame
+	- A collection of Row objects
+	- Expression-based operations
+	- Logical plans and optimizer
+- DataSet
+	- Internally rows, externally JVM objects
+	- Almost the "Best of both side": type safe + fast
+## 6.2 Working with RDDs
+RDD（Resilient Distributed Dataset）是Spark中的一个基本概念，是一个不可变的、分布式的数据对象集合，能够并行操作。RDD可以跨集群的多个节点分布存储数据，提供了一种高度的容错性、并行性和灵活性。
+RDD的主要特点包括：
+1. **不可变性**：一旦创建，RDD的数据就不可以被改变。这有助于容错，因为系统可以根据原始数据源重新构建RDD。
+2. **弹性**：RDD能够在节点失败时重新构建丢失的数据分区，因为RDD的操作都是基于转换的，这些转换是可以记录的，并且是确定性的。这意味着如果某个节点的数据丢失，Spark可以使用原始数据和转换操作日志来重新计算丢失的数据分区。
+3. **分布式**：RDD的数据自动被分散到集群中的多个节点上，可以在这些节点上并行处理。
+4. **基于转换的操作**：RDD的操作是通过转换（如`map`、`filter`、`reduce`等）来实现的，每个转换操作都会生成一个新的RDD。转换是懒执行的，也就是说，只有在需要结果的时候才会执行。
+5. **容错性**：RDD通过记录转换的 lineage（血统信息）来提供容错能力。如果由于某种原因某个分区的数据丢失，Spark可以通过这个 lineage 来重新计算丢失的分区数据。
+6. **内存和磁盘存储**：RDD可以存储在内存中，也可以存储在磁盘上，或者两者的组合。根据RDD的存储和持久化策略，可以优化性能。
+- Resilient Distributed Datasets (RDD)
+	- **Resilient**: Achieve fault tolerance through *lineages*
+	- **Distributed Datasets**: Represent a collection of objects that is *distributed over machines*
+### RDD: Distributed Data
+```Python
+# Create an RDD of names, distributed over 3 partitions
+dataRDD = sc.parallelize(["Alice", "Bob", "Carol", "Daniel"], 3)
+```
+- `sc.parallelize()` partition data into specific parts (here is 3)
+- RDDs are **immutable**, i.e., they cannot be changed once created
+- This is an RDD with 4 strings. In actual hardware, it will be partitioned into the 3 workers.
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251636047.png)
+### Transformations
+转换（Transformation）是对数据集进行操作的函数，它接收当前的RDD，应用一个计算函数，并返回一个新的RDD。转换是**惰性**执行的，也就是说，它们不会立即计算结果。只有在行动（Action）操作请求时，例如当需要将数据保存到文件或者将数据集聚合计算结果返回给驱动程序时，转换才会被触发执行。
+- **Transformations** are a way of transforming RDDs into RDDs
+```Python
+dataRDD = sc.parallelize(["Alice", "Bob", "Carol", "Daniel"], 3)
+# Create a new RDD which stores the length of names
+nameLen = dataRDD.map(lambda s: len(s))
+```
+- This represents the transformation that maps each string to its length, and creating a new RDD
+- However, the transformations are **lazy**. This means the transformation will **not be executed** until an **action is called** on it.
+	- For example, save this RDD to a file will trigger the transformation to execute
+	- The advantages of being lazy is that Spark can optimise the query plan to improve speed
+- Example of transformations: `map`, `order`, `groupBy`, `filter`, `join`, `select`
+### Actions
+- **Actions** trigger Spark to compute a result from a series of transformations
+```Python
+dataRDD = sc.parallelize(["Alice", "Bob", "Carol", "Daniel"], 3)
+nameLen = dataRDD.map(lambda s: len(s))
+# Take action
+nameLen.collect()
+```
+```Bash
+[5, 3, 5, 6]
+```
+- `collect()` here is an action
+	- It is the action that asks Spark to retrieve all elements of the RDD to the driver node
+	- Driver Node是指运行Driver Process，用户应用程序的*主节点*
+- Examples of actions: `show`, `count`, `save`, `collect`
+### Distributed Processing
+- As we previously said, RDDs are actually distributed across machines.
+- Thus, the transformations and actions are executed in parallel in workers. The results are sent to the driver node in the final step.
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251649756.png)
+
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251650036.png)
+## 6.3 Caching and DAGs
+- Log mining example: 
+	- Load error messages from a log into memory
+	- Then interactively search for various patterns
+```Python
+# Load file from HDFS (Hadoop distributed file system), then create an RDD
+# sc for SparkContext
+lines = sc.textfile("hdfs://...")
+# Search for the Error line, create a new RDD with Error line
+errors = lines.filter(lambda s: s.startwith("Error"))
+# Split error line by tab, and extract the third sentence into a new RDD
+messages = errors.map(lambda s: s.split("\t")[2])
+# Store messages into memory
+messages.cache()
+# Filter mysql in messages, then count them (from the memory, faster)
+messages.filter(lambda s: "mysql" in s).count()
+```
+- Cache the data can let getting results faster
+### Caching
+- `cache()`: saves an RDD to memory (in each work node)
+- `persist(options)`: can be used to save an RDD to memory, disk, or off-heap memory
+- When should we cache or not cache an RDD?
+	- When it is expensive to compute and needs to be re-used multiple times
+	- If worker nodes have not enough memory, they will evict the "least recently used" RDDs. So, be aware of memory limitations when caching
+### Directed Acyclic Graph (DAG)
+- Internally, Spark creates a graph (DAG) which represents all the RDD objects and how they will be transformed
+- Transformations construct this graph; actions trigger computations on it
+### Narrow and Wide Dependencies
+- **Narrow Dependencies** are where each partition of the parent RDD is used by at most 1 partition of the child RDD
+	- E.g., map, flatMap, filter, contains
+- **Wide Dependencies** are the opposite (each partition of parent RDD is used by multiple partition of the child RDD)
+	- E.g., reduceByKey, groupBy, orderBy
+**窄依赖（Narrow Dependencies）**
+- 窄依赖指的是每个父RDD的分区最多被子RDD的一个分区所使用。这种依赖关系意味着计算可以在分区级别上进行，而不需要跨分区的数据交换。
+- 例如，`map`、`flatMap`、`filter`、`contains`等操作会产生窄依赖，因为它们在每个输入分区上独立运行，并产生一个输出分区，不需要等待其他分区的数据。
+
+**宽依赖（Wide Dependencies）**
+- 宽依赖是指每个父RDD的分区可能被子RDD的多个分区所使用。这种依赖通常涉及到对数据进行聚合或重新组织，需要多个分区之间的数据交换。
+- 例如，`reduceByKey`、`groupBy`、`orderBy`等操作会产生宽依赖，因为这些操作需要整合多个分区的数据，可能需要将不同分区的数据汇集到一起进行计算。
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251736760.png)
+
+- In the DAG, consecutive narrow dependencies are grouped together as "**stages**"
+- **Within stages**, Spark performs consecutive transformations on the same machines
+- **Across stages**, data needs to be **shuffled**, i.e. exchanged across partitions, in a process very similar to mapReduce, which involves writing intermediate results to disk
+- Minimising shuffling is good practice for improving performance
+**DAG和执行阶段**
+- 在Spark中，任务的执行通过一个有向无环图（DAG）来表示，DAG中的节点代表RDD，边代表转换操作（即依赖关系）。
+- 连续的窄依赖被组织成为一个“阶段”（Stage）。在这些阶段内，Spark可以连续地在同一台机器上执行多个转换，而不需要在节点之间移动数据。
+- 不同的阶段之间，由于宽依赖的存在，需要进行数据的“洗牌”（Shuffle），即跨分区交换数据。这个过程类似于MapReduce中的shuffle，并且通常涉及到将中间结果写入磁盘。
+**性能优化**
+- 由于数据洗牌是一个耗时的过程，涉及到网络传输和磁盘I/O，所以在Spark程序中尽量减少洗牌是提高性能的一个重要实践。这意味着尽可能地利用窄依赖，以及在不可避免需要进行洗牌的宽依赖时，尽量减少需要交换的数据量
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251736486.png)
+### Lineage and Falut Tolerance
+- Unlike Hadoop, Spark does not use replication to allow fault tolerance
+	- Spark tries to store all data in memory, not disk. Memory capacity is much more limited than disk, so simply duplicating data is expensive
+- **Lineage Approach**: if a worker node goes down, we replace it by a new worker node, and use the graph (DAG) to recompute the data in the lost partition
+	- Note that we only need to recompute the RDDs from the lost partition
+**容错机制对比**
+- 在Hadoop的MapReduce中，容错是通过在磁盘上复制数据来实现的。如果一个数据节点失败，系统可以从副本中恢复数据。
+- Spark采取了不同的方法。由于Spark尝试将所有数据保存在内存中以提高速度，而内存资源相比磁盘更有限且成本更高，因此它不依赖于数据的复制来实现容错。
+**血统（Lineage）方法**
+- Spark的RDD有一种内建的血统记录，即记录了它是如何从其他RDD转换来的。
+- 当一个工作节点（Worker Node）发生故障，Spark会启动一个新的工作节点来替代它。
+- 利用DAG（有向无环图），Spark能够重新计算丢失的分区数据。DAG记录了RDD之间的所有转换关系，所以Spark可以通过血统信息追溯到原始的数据源，并且只重新计算丢失分区的RDD，而不需要重新计算整个数据集。
+- 这种方法效率很高，因为它避免了不必要的数据复制，并且只在数据丢失时才重新计算数据。
+## 6.4 DataFrames and Datasets
+### DataFrames
+- A DataFrame represents a table of data, similar to tables in SQL, or DataFrames in pandas
+- Compared to RDDs, this is a higher level interface, e.g. it has transformations that resemble SQL operations
+	- DataFrames (and DataSets) are the recommended interface for working with Spark - they are easier to use than RDDs and almost all tasks can be done with them. While only rarely using the RDD functions
+	- However, all DF operations are still ultimately compiled down to RDD operation by Spark
+#### Example
+- Read data from a CSV file
+```Python
+flightData2015 = spark \
+					  .read \
+					  .option("inferSchema", "true") \
+					  .option("header", "true") \
+					  .csv("./2015-summary.csv")
+```
+- Sorts by 'count' and output the first 3 rows (action)
+```Python
+flightData2015.sort("count").take(3)
+```
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251744301.png)
+#### Transformations
+- An easy way to transform DF is to use SQL queries. This takes in a DF and returns a DF (the output of the query)
+```Python
+flightData2015.createOrReplaceTempView("flight_data_2015")
+maxSql = spark.sql("""
+SELECT DEST_COUNTRY_NAME, sum(count) as destination_total
+FROM flight_data_2015
+GROUP BY DEST_COUNTRY_NAME
+ORDER BY sum(count) DESC
+LIMIT 5
+""")
+maxSql.collect()
+```
+- We can also run the exactly the same query as follows
+```Python
+from pyspark.sql.functions import desc
+flightData2015\
+.groupBy("DEST_COUNTRY_NAME")\
+.sum("count")\
+.withColumnRenamed("sum(count)", "destination_total")\
+.sort(desc("destination_total"))\
+.limit(5)\
+.collect()
+```
+- Generally, these transformation functions (`groupBy`, `sort`...) take in either strings or "column objects", which represent columns
+	- For example, "desc" here returns a column object
+### Datasets
+- Datasets are similar to DF, but are type-safe
+	- In Spark, DF is just an alias of Dataset[row]
+	- However, Datasets are not available in Python and R, since these are dynamically typed language
+```Python
+case class Flight(DEST_COUNTRY_NAME: String, ORIGIN_COUNTRY_NAME: String, count: BigInt)
+val flightsDF = spark.read.parquet("/mnt/defg/flight-data/parquet/2010-summary.parquet/")
+val flights = flightsDF.as[Flight]
+flights.collect()
+```
+- The Dataset `flights` is type safe - its type is the "Flight" class
+- Now when calling `collect()`, it will also return objects of the "Flight" class, instead of Row objects
