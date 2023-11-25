@@ -1416,3 +1416,173 @@ flights.collect()
 ```
 - The Dataset `flights` is type safe - its type is the "Flight" class
 - Now when calling `collect()`, it will also return objects of the "Flight" class, instead of Row objects
+
+# 7 - Spark II
+## 7.1 Spark SQL
+- Unifies Spark components and permits abstraction to DF/Datasets in Java, Python, R
+- Keep track of schema and support optimised relational operations
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252231058.png)
+### 7.1.1 RDD vs DataFrame
+- RDD:
+	![image.png](https://images.wu.engineer/images/2023/11/25/202311252231279.png)
+	- Instruct Spark how to compute the query
+	- The intension is completely opaque to Spark 意图不透明
+	- Spark also does not understand the structure of the data in RDDs or the semantics of user functions
+- DataFrame
+	![image.png](https://images.wu.engineer/images/2023/11/25/202311252232666.png)
+	- Tell Spark what to do, instead how to do
+	- The code is far more expressive as will as simpler
+		- Using a domain specific language (DSL) similar to python pandas
+		- Use high-level DSL operators to compose the query
+	- Spark can inspect or parse this query and understand our intention, it can then optimise or arrange the operations for efficient execution. Spark 可以检查或解析该查询，并理解我们的意图，然后优化或安排操作以高效执行
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252236098.png)
+### 7.1.2 Catalyst Optimiser
+- Catalyst optimiser takes a computational query and converts it into an execution plan through four transformational phases:
+	1. Analysis
+	2. Logical optimisation
+	3. Physical planning
+	4. Code generation
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252240055.png)
+**Out of context**
+1. **分析（Analysis）**：
+    - 在这个阶段，Catalyst Optimizer 分析 SQL 查询，并将它转换成一个未优化的逻辑计划。分析过程中会检查查询中引用的表和列是否存在，数据类型是否匹配，以及解析函数调用等。这一步通常包括将查询中的表和列名与系统目录（如Hive Metastore）中的元数据对应起来。
+2. **逻辑优化（Logical Optimization）**：
+    - 逻辑优化阶段是将分析阶段得到的逻辑计划转换成一个优化的逻辑计划。Catalyst 应用一系列规则来优化查询，如谓词下推、投影剪裁、子查询展开、常数折叠等。
+3. **物理计划（Physical Planning）**：
+    - 在物理计划阶段，优化器将逻辑计划转换成一个或多个物理计划。这个过程也称为物理计划生成。Catalyst 使用代价模型来比较不同的物理计划，并选择一个代价最低（例如，预计会用最少资源执行）的计划作为最终的执行计划。
+4. **代码生成（Code Generation）**：
+    - 在最后的代码生成阶段，Catalyst 会将选定的物理计划转换成可以在 JVM 上执行的高效字节码。这通过使用名为“Whole-Stage Code Generation”的技术实现，它可以有效地将整个查询阶段的计算合并成单个函数，减少了虚拟机的调用开销。
+#### Example
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252240834.png)
+
+
+## 7.2 Machine Learning with Spark ML
+### 7.2.1 Problem Setup
+#### Classification
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252259679.png)
+- **Classification:** Categorise samples into classes, given training data
+#### Regression
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252301904.png)
+**Regression**: predict *numeric* labels, given training data
+### 7.2.2 Typical ML Pipeline
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252303533.png)
+### 7.2.3 Data Preprocessing
+#### Data Missing
+- Why is data missing?
+	- Information was not collected
+	- Missing at random: missing values are randomly distributed. If data is instead missing not at random, then the missing itself may be important information
+- How to handle missing values?
+	- Delete objects (rows) with missing values
+	- Or: fill in the missing values (imputation)
+		- E.g. based on the **mean / median** of that attribute
+		- Or: by fitting a **regression** model to predict
+		- **Dummy variables**: optionally insert a column which is 1 if the variable was missing, and 0 otherwise
+```Python
+# Regression
+from pyspark.ml.feature import Imputer
+imputer = Imputer(inputCols=["a", "b"], outputCols=["out_a","out_b"])
+model = imputer.fit(df)model.transform(df).show()
+```
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252316431.png)
+#### Categorical Encoding
+- Convert **categorical feature** to **numerical features**
+- Numerical values are often assigned in a way that represents the ordinal relationship or inherent order among the categories.
+	- E.g., the risk rating [Low, Medium, High] will be converted into [0, 1, 2]
+- This let us apply algorithms which can handle numerical features (e.g. linear regression)
+- This approach may introducing **unwanted numerical relationship**
+#### One Hot Encoding
+- Convert **discrete feature** to a series of **binary features**
+- This method will not give model any **numerical relationship** for this feature
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252326976.png)
+#### Normalisation
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252326173.png)
+**Out of syllabus**
+在数据预处理中进行归一化（Normalization）是为了调整数值型数据的尺度，使得所有的特征都被统一到一个固定范围内，通常是[0, 1]或者[-1, 1]。归一化的原因和好处包括：
+1. **提高收敛速度**：在梯度下降等优化算法中，归一化可以帮助加快收敛速度。如果不同的特征具有不同的尺度，那么优化过程可能会变得很慢，因为小尺度的特征需要更大的权重变化才能在损失函数中产生相同的影响。
+2. **消除量纲影响**：归一化可以消除不同特征的量纲影响，使得模型不会因为特征的尺度而偏向于某些特征。
+3. **提高算法精度**：某些算法，如K-最近邻（K-NN）和主成分分析（PCA），是基于距离的算法，如果不同的特征有不同的尺度，那么距离计算可能会被尺度大的特征主导，导致模型性能下降。
+4. **避免数值计算问题**：过大或过小的数值在计算机中可能会导致数值溢出或下溢，归一化可以避免这些数值问题。
+5. **满足模型的假设**：一些模型对数据有特定的假设，例如线性回归和逻辑回归假设所有的特征都是同等重要的，归一化可以帮助满足这些假设。
+### 7.2.4 Training & Testing
+#### Logistic Regression
+##### Sigmoid Function
+- The sigmoid function $\sigma(x)$ maps the real numbers to the range (0,1):
+$$
+\sigma(x) = \frac 1 {1+e^{-x}}
+$$
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252332802.png)
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252334481.png)
+#### Training Logistic Regression
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252334005.png)
+Big Picture: ML involves fitting the **parameters** of a model (here is $w$, $b$) by minimising a **loss/cost function**
+Here, the cost function $J$ is Cross Entropy Loss (intuitively: think of the model's predictions as a probability). The closer the prediction probability to the label, the lower the loss value.
+### 7.2.5 Evaluation
+Example: COVID-19 Antigen Test
+- The **predicted label** is the result from the antigen test (antigen is fast but not so precise)
+- The **ground truth label** is the result from more precise test (assume it is absolutely correct)
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252341024.png)
+- 这里预测数据中只有一个1与验证集中的1对应，然而另一个本该呈现阳性的样本预测为阴性。
+- 我们可以将预测结果和真实结果做成真值表：
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252343670.png)
+- 其中，表中的四个区域代表：
+	- TN (True Negative): test correct, (test) output negative
+	- TP (True Positive): test correct, output positive
+	- FN (False Negative): test wrong, output negative
+	- FP (False Positive): test wrong, output positive
+- 我们可以用这四个数据计算不同的性能指标：
+	- Accuracy: fraction of correct predictions, $\frac {TN+TP} {TN+TP+FN+FP}$
+	- Sensitivity: fraction of positive cases that are detected, $\frac {TP} {FN+TP}$
+	- Specificity: fraction of actual negatives that are correctly identified, $\frac {TN} {TN+FP}$
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252348192.png)
+### 7.2.6 Pipelines
+- Idea: building complex pipeline out of simple building blocks: e.g. encoding, normalisation, feature transformation, model fitting
+- Why?
+	- Better code reuse: without pipelines, we would repeat a lot of code, e.g., between the training and test pipeline, cross-validation, model varients
+	- Easier to perform cross validation, and hyperparameter tuning
+### 7.2.7 Building Block: Transformers
+- Transformers are for mapping DF to DF
+	- Examples: **one hot encoding, tokenisation**
+	- Specifically, a Transformer object has a `transform()` method, which performs its transformation
+- Generally, these transformers output a new DF which **append** their result to the original DF
+	- Similarly, a fitted model (logistic regression) is a Transformer that transform a DF into one with the predictions appended
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252353861.png)
+
+### 7.2.8 Building Blocks: Estimator
+- **Estimator** is an algorithm which takes in data, and outputs a fitted model. For example, a learning algorithm (the logistic regression object) can be fit to data, producing the trained logistic regression model
+- They have a `fit()` method, which returns a Transformer
+![image.png](https://images.wu.engineer/images/2023/11/25/202311252355596.png)
+### Estimator
+- **Estimator** 是一个算法，它可以基于给定的数据集学习或拟合出一些模型参数。换句话说，它是一个学习算法或者任何一个可以拟合或训练数据的对象。
+- 在Spark MLlib中，Estimator抽象表示一个学习算法，或者更具体地说，是一个`fit()`方法。当你对一个数据集调用`fit()`方法时，它会产生一个模型，这个模型就是一个Transformer。
+- 举个例子，一个用于分类的逻辑回归或者决策树算法，在训练数据上训练完成后，会变成一个Estimator。
+### Transformer
+- **Transformer** 是一个转换器，它把一个数据集转换成另一个数据集。通常，在机器学习中，转换器用来改变或预处理数据，比如进行归一化、标准化或者使用模型进行预测。
+- 在Spark MLlib中，Transformer表示一个`transform()`方法，该方法接受一个DataFrame作为输入并产生一个新的DataFrame作为输出。通常，这个输出会包含预测结果、转换后的特征等。
+- 例如，一个训练好的模型，比如逻辑回归模型，可以用作Transformer来对新数据进行预测。
+### 7.2.9 Pipeline: Training Time
+- A pipeline chains together multiple Transformers and Estimators to form an ML workflow
+- Pipeline is an Estimator. When `pipeline.fit()` is called
+	- Starting from the beginning of the pipeline
+	- For Transformers, it calls `transform()`
+	- For estimators, it calls `fit()` to fit the data and returns a fitted model
+### 7.2.10 Pipeline: Testing Time
+- The output of `pipeline.fit()` is the estimated pipeline model (of type PipelineModel)
+	- It is a transformer, and consist of a series of Transformers
+	- When its `transform()` is called, each stage's `transform()` method is called
+## 7.3 Evaluate Regression Model
+- Mean Absolute Error (MAE)
+$$
+MAE = \frac 1n \sum^n_{i=1}|y_i-\hat {y_i}|
+$$
+- Mean Squared Error (MSE)
+$$
+MSE = \frac 1n \sum^n_{i=1}(y_i-\hat {y_i})^2
+$$
+- Root Mean Squared Error (RMSE)
+$$
+RMSE = \sqrt {\frac 1n \sum^n_{i=1}(y_i-\hat {y_i})^2}
+$$
+- R Squared Value
+	- The closer to 1, the better the model fits the data
+![image.png](https://images.wu.engineer/images/2023/11/25/202311260003386.png)
+
