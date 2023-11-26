@@ -1901,3 +1901,87 @@ Flink 的一些关键特点包括：
 		- Watermark: a special record to determine when to trigger the event-time related results
 		  Flink 中的水印是特殊的记录，用于确定何时触发基于事件时间的计算。它允许系统处理有序和无序的事件，并保证即使出现乱序事件，时间窗口的结果也是正确的。
 			- Flink uses late handling function (related to watermark) to determine when to drop the late events
+# 9 - Graph and PageRank
+## 9.1 Graphs: Introduction
+### Graph Data
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270049925.png)
+#### Information Networks
+- **Nodes (vertices)** represent objects (in this case, people)
+- **Edges** represent relationships (in this case, the relationship)
+	- Can be undirected (e.g. friendship), or directed (e.g., citations, webpage hyperlinks)
+### Overview: Graph Processing
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270103418.png)
+PageRank 是一个由 Google 的创始人拉里·佩奇（Larry Page）和谢尔盖·布林（Sergey Brin）在斯坦福大学时发明的图挖掘算法。最初设计用于互联网网页排序，通过该算法，Google 能够根据网页的重要性给予排名，这个排名被用作其搜索引擎结果的一部分。
+
+PageRank 基于这样一个假设：重要的网页很可能会被更多的其他网页所链接。换句话说，一个网页的重要性取决于链接到它的其他网页的数量和质量。如果一个网页被许多其他重要的网页链接，那么这个网页也被认为是重要的。
+
+在图挖掘的背景下，PageRank算法可以概括为以下几点：
+1. **图表示**：整个互联网可以被表示为一个有向图，其中每个网页是一个节点，每个超链接是一个从一个节点指向另一个节点的有向边。
+2. **随机游走模型**：PageRank 算法模拟了一个“随机冲浪者”，这个冲浪者在网页间随机点击链接。在任何给定的网页上，冲浪者选择页面上的任一链接并随机跳转，或者以一定的概率跳转到任何其他网页。
+3. **迭代计算**：PageRank 值是通过迭代计算直到收敛得到的。每一轮迭代，一个页面的 PageRank 值是由链接到它的页面的 PageRank 值按其出链接数量平均分配而来，加上一个小的常数，以防止没有链接的页面的 PageRank 值为零。
+4. **排名决定**：计算最终的 PageRank 值后，所有网页根据它们的 PageRank 值进行排序，值越高表示网页越重要。
+
+PageRank 已经成为图挖掘和网络分析的一个基本工具，不仅适用于互联网网页排名，还可以用于社交网络中影响力的识别、科学文献中重要论文的发现、生物网络中关键蛋白质的识别等多个领域。
+## 9.2 Simplified PageRank
+### Web as a Graph
+- Web can be seen as a **directed graph**:
+	- Nodes: webpages
+	- Edges: hyperlinks
+### PageRank: Ranking Pages on the Web
+- All web pages are not equally important
+	- Measuring the **importance** of pages is necessary for many web-related tasks (e.g. search, recommendation)
+	- PageRank-like methods are also used in many other applications (bioinformatics, etc)
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270110638.png)
+### Links as Votes
+- **Idea: Links as Votes**
+	- Page is more important if it has **more in-links**
+		- Assume that incoming links are harder to manipulate. For example, anyone can create an out-link from their page to `en.wikipedia.edu`, but it is hard to get `en.wikipedia.edu` to create a link to their page.
+		- We can assume that **each out-link can be seen as the user upvote for that website** (user think the website content is useful, so hyperlink it)
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270111292.png)
+- Naive solution: **Rank** each page **based on its number of in-links**
+- **Problem**: malicious user can create a huge number of "dummy" web pages, to link their one page, to drive up its rank
+- **Solution**: make the number of votes that a page has proportional to its own importance. Then, as long as the "dummy" pages themselves have low importance, they will contribute little votes as well
+	- Links from important pages count more
+	- This is the **main idea** of PageRank, which recursively defines the importance of a page based on the importance of the pages linking to it.
+- 即，一个网页的重要性取决于链接到其的网页的**数量和质量**
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270118416.png)
+### "Voting" Formulation
+- Each link's vote is proportional to the **importance** of its source page
+- For each page $j$, define its importance (or rank) as $r_j$
+- If page $j$ with important $r_j$ has $n$ out-links, each link gets $r_j / n$ votes
+- Page $j$'s own importance is the sum of the votes on its in-links
+	- Analogy: each page receives a certain amount of candies from its incoming neighbours. It distributes these candies evenly to its outgoing neighbours
+- 网页引用其他网页，增加其他网页的重要性。其他网页引用此网页，能够增加此网页的重要性
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270123629.png)
+### The "Flow" Model
+- A "vote" from an important page worth more
+- A page is important if it is referenced by other important pages
+- Define a "rank" or importance $r_j$ for page $j$
+$$
+r_j = \sum_{i\to j}\frac {r_i} {d_i}
+$$
+- Where $r_i$ indicates the importance of webpage $i$ that reference the webpage $j$, and $d_i$ indicates the number of out-link (reference) of webpage $i$
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270130724.png)
+### Matrix Formulation
+- The flow equation can be written as:
+$$
+r = M \cdot r
+$$
+- M是一个矩阵，长和宽都为网站的总数，对于网站$i$引用了网站$j$，那么在`M[j][i]`的值就为$\frac 1{d_i}$，即j行n列
+- r是一个标量，其保存所有网站
+- 计算所有网站的重要性即为M点乘r
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270142550.png)
+### Power iteration method
+- Given a web graph with n nodes, where the nodes are pages and edges are hyperlinks
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270147020.png)
+- **Intuitive interpretation of power iteration**: each node starts with equal importance (of 1/N). During each step, each node passes its current importance along its outgoing edges, to its neighbours.
+- **Example**:
+![image.png](https://images.wu.engineer/images/2023/11/26/202311270151188.png)
+### 9.2 Random Walk Formulation
+
+## 9.3 PageRank with Teleports
+
+## 9.4 Topic Sensitive PageRank
+
+## 9.5 PageRank Implementation
+
