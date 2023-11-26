@@ -1042,7 +1042,24 @@ NoSQL数据库可以根据它们管理数据的方式分为几种主要类型：
 		1. **基本可用（Basically Available）**：系统保证可用性，但可能因为响应时间的延迟或系统功能的减少而不是完全可用。
 		2. **软状态（Soft state）**：系统的状态可能会随时间而改变，即使没有输入，系统状态仍然有可能变化（例如，由于数据复制而导致的状态变化）。
 		3. **最终一致性（Eventual consistency）**：系统保证，如果没有新的更新操作，数据最终将达到一致状态。
-
+	- Pros：
+		1. **高可用性**：
+		    - NoSQL数据库通常可以在部分系统故障时继续工作，它们避免了单点故障，提供了更高的可用性。
+		2. **弹性扩展**：
+		    - NoSQL数据库设计之初就考虑到了水平扩展，它们可以通过添加更多的服务器来处理更多的数据和负载，而不需要昂贵的单体服务器。
+		3. **灵活性**：
+		    - 无模式或者灵活模式的数据存储，使得NoSQL数据库可以轻松应对结构变化和不同类型的数据。
+		4. **性能**：
+		    - 在某些操作上，尤其是那些不需要复杂事务支持的操作上，NoSQL数据库可以提供更好的性能。
+	- Cons：
+		1. **一致性问题**：
+		    - 最终一致性模型意味着在数据同步过程中可能存在不一致性的时间窗口，这可能不适合对实时一致性要求很高的应用。
+		2. **复杂性**：
+		    - 开发者可能需要在应用程序层面处理一致性问题，这可能增加应用程序逻辑的复杂性。
+		3. **无事务性**：
+		    - 传统的事务特性（如ACID）在很多NoSQL数据库中是不支持的，或者只有部分支持，这对于需要强事务性的系统来说是一个限制。
+		4. **数据冗余**：
+		    - 为了提供高可用性和性能，NoSQL数据库可能会存储数据副本，这可能导致数据存储的冗余
 - Duplication (Denormalisation)
 	- 去规范化（Denormalization）是数据库优化的一个过程，特别是在关系型数据库的上下文中。去规范化涉及减少数据库的规范化级别，通常通过合并表格、添加冗余数据或组合字段来实现。其主要目的是提高数据库的查询性能，尤其是在大数据量和复杂查询的情况下。
 	- 在典型的关系型数据库中，规范化是一个将数据组织到多个相关表中以减少冗余和依赖性的过程。规范化有很多级别（正规形式），每个级别都旨在减少数据冗余和提高数据完整性。然而，高度规范化可能导致性能问题，因为复杂的查询可能需要多个表之间的连接操作，这在大型数据库中可能会非常耗时。
@@ -1740,4 +1757,147 @@ However, it is not sufficient to just keep this state in memory, as any **failur
 	- Setting source rate limits for stability
 	- Multiple streaming queries in the same Spark application
 ## 8.3 Flink
+Apache Flink 是一个开源流处理框架，用于在高吞吐量和低延迟的要求下处理无界和有界的数据流。Flink 被设计用于运行在所有常见的集群环境上，以及执行任意规模的数据处理任务。
+Flink 的一些关键特点包括：
+1. **真正的流处理**：Flink 提供了真正的流处理能力，而不是微批处理（micro-batching）。它处理事件流的方式是一次处理一个事件，提供了更低的延迟和更高的处理效率。
+2. **事件时间和水印**：Flink 支持事件时间（event time）概念和水印（watermarks），这使得它能够处理乱序事件并在分布式系统中提供一致的结果。
+3. **状态管理和容错**：Flink 提供了先进的状态管理系统，可以在分布式环境中维护大量状态，同时支持容错机制，如保存检查点（checkpoints）和保存点（savepoints）。
+4. **可扩展性**：Flink 能够扩展到数千个节点，处理大规模的数据流。
+5. **丰富的API**：Flink 提供了 DataStream 和 DataSet API 来处理实时和批处理任务，以及 Table API 和 SQL API 来执行关系型操作。
+6. **多种部署选项**：Flink 可以在各种环境中部署，包括在本地、在大数据集群（如Hadoop YARN、Apache Mesos）以及云平台上。
+7. **支持复杂事件处理（CEP）**：Flink 内置了复杂事件处理的功能，可以用于模式匹配和事件序列的识别。
+8. **集成**：Flink 提供了与其他存储系统和消息队列（如Apache Kafka、Amazon Kinesis、Elasticsearch）的连接器，以便于数据输入和输出。
 
+### Event-driven streaming application
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261907124.png)
+图中的应用程序通过事件日志连接起来。一个应用程序将其输出发送到事件日志，另一个应用程序接收另一个应用程序发送的事件。事件日志将发送者和接收者分离开来，并提供异步、非阻塞的事件传输。每个应用程序都可以是有状态的，可以本地管理自己的状态，而无需访问外部数据存储。应用程序还可以单独运行和扩展。
+### Dataflow Model
+- Dataflow Graph
+	- A logical dataflow graph to continuously count hashtags (nodes represent operators and edge denote data dependencies)
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261909333.png)
+
+- A physical dataflow plan for counting hashtags (nodes represent tasks)
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261910479.png)
+
+- Data Exchange Strategies
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261911388.png)
+1. **Forward（转发）**：
+    - 在转发策略中，数据从一个任务直接转发到下一个任务，没有任何复制或改变。这通常发生在处理流水线上相邻的操作之间，当操作可以在同一个处理节点上顺序执行时。
+    - 转发交换最小化了网络通信，因为数据不需要在节点之间移动。
+2. **Broadcast（广播）**：
+    - 广播策略将数据从一个任务复制并发送给所有的下游任务。这在下游任务都需要完整数据集进行处理时非常有用，例如在过滤或者全局聚合场景中。
+    - 广播交换策略可以增加网络负载，因为每条数据都被发送到每个处理节点。
+3. **Key-Based（基于键的）**：
+    - 基于键的策略按数据中的键将数据路由到下游任务。这通常用于需要按键分组或聚合数据的操作，如在键值对中按键进行reduce操作。
+    - 在这种策略中，所有具有相同键的数据项都会被发送到同一个处理节点，以便于聚合或处理。
+4. **Random（随机）**：
+    - 随机策略将数据随机分配给下游任务。这在需要均匀分布处理负载时有用，例如在负载均衡或确保数据均匀分布到所有节点以避免热点时。
+    - 随机交换不保证任何数据项的位置，因此不适用于需要数据局部性的处理。
+
+### System Architecture
+- Flink is a distributed system for stateful parallel data stream processing
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261915188.png)
+### Task Execution
+- A **Task Manager** can execute several tasks at the same time:
+	- tasks of the same operator (data parallelism)
+	- tasks of different operators (task parallelism)
+	- tasks from a different application (job parallelism)
+- A Task Manager offers a certain number of **processing slots** to control the number of tasks it is able to concurrently execute
+- A processing slot can execute **one slice of an application** - one parallel task of each operator of the application
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261917514.png)
+### Data Transfer in Flink
+- The tasks of a running application are **continuously** exchanging data
+- The Task Manager take care of **shipping data** from sending tasks to receiving tasks
+- The network component of a Task Manager **collects records in buffers** before they are shipped
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261921795.png)
+### Event-Time Processing
+- Timestamps
+	- Every record must be accompanied by an event timestamp
+- Watermarks
+	- A Flink event-time application must also provide watermarks
+	- Watermarks are used to derive the current event time at each task in an event-time application
+	- In Flink, watermarks are implemented as special records holding a timestamp as a Long value. Watermarks flow in a stream of regular records with annotated timestamps.
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261924645.png)
+
+### State Management
+- A stateful stream processing task:
+	- all data maintained by a task and used to compute the results of a function belong to the state of the task
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261925269.png)
+
+- Operator State
+	- Scoped to an operator task
+	- All records processed by the same parallel task have access to the same state
+	- Operator state cannot be accessed by another task of the same or a different operator
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261926153.png)
+
+- Keyed State
+	- Maintains one state instance per key value
+	- Partitions all records with the same key to the operator task that maintains the state for this key
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261927945.png)
+### 状态管理
+
+在流处理任务中，状态是关键的概念，尤其是对于有状态的流处理任务。这些任务会保持数据状态，以便进行复杂的计算。状态可以是任何与任务相关的数据，比如计数器、窗口的内容、或者用于复杂事件处理的部分结果。
+- **Operator State（操作员状态）**：
+    - 操作员状态是特定于单个操作任务的。
+    - 在一个任务内处理的所有记录都可以访问相同的状态。
+    - 操作员状态对于同一个或不同操作的其他任务是不可见的。
+- **Keyed State（键控状态）**：
+    - 键控状态为每个键值维护一个独立的状态实例。
+    - 它将所有具有相同键的记录分配给维护该键状态的操作任务。
+    - 这允许任务对每个键执行独立的处理，例如在使用键/值数据进行聚合时。
+### Checkpoints
+- Consistent checkpoints: similar to Spark micro-batch checkpoints:
+	1. Pause the ingestion of all input streams
+	2. Wait for all in-flight data to be completely processed, meaning all tasks have proceed all their input data
+	3. Take a checkpoint by copying the state of each task to a remote, persistent storage. The checkpoint is complete when all tasks finished their copies
+	4. Resume the ingestion of all streams
+检查点是一种容错机制，用于在分布式系统中保存任务的状态，以便在发生故障时恢复。
+- **一致性检查点**：
+    - 这与 Spark 的微批处理检查点类似。
+    - 它涉及以下步骤：
+        1. 暂停所有输入流的摄取。
+        2. 等待所有正在处理的数据完全处理完毕，也就是说，所有任务都已经处理了它们的输入数据。
+        3. 通过将每个任务的状态复制到远程持久存储来创建检查点。当所有任务完成复制时，检查点就完成了。
+        4. 恢复所有流的摄取。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261938926.png)
+- Flink’s Checkpointing Algorithm
+	- based on the Chandy–Lamport algorithm for distributed snapshots
+	- does not pause the complete application but decouples checkpointing from processing
+	- some tasks continue processing while others persist their state
+- More details
+	- uses a special type of record called a checkpoint barrier
+	- checkpoint barriers are injected by source operators into the regular stream of records and cannot overtake or be passed by other records
+	- A checkpoint barrier carries a checkpoint ID to identify the checkpoint it belongs to and logically splits a stream into two parts
+	- All state modifications due to records that precede a barrier are included in the barrier’s checkpoint and all modifications due to records that follow the barrier are included in a later checkpoint.
+
+- Streaming application which two stateful sources, two stateful tasks, and two stateless sinks
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261941606.png)
+- Job Manager initiates a checkpoint by sending a message to all sources
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261941458.png)
+- Sources checkpoint their state and emit a checkpoint barrier
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261942633.png)
+- Tasks wait to receive a barrier on each input partition
+- Records from input streams for which a barrier already arrived are buffered
+- All other records are regularly processed
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261942868.png)
+- Tasks checkpoint their state once all barriers have been received, then they forward the checkpoint barrier
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261943950.png)
+- Tasks continue regular processing after the checkpoint barrier is forwarded
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261944016.png)
+- Sinks acknowledge the reception of a checkpoint barrier to the Job Manager
+- A checkpoint is complete when all tasks have ack-ed the successful checkpointing of their state
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261944223.png)
+## 8.4 Conclusion
+- A comparison between Spark and Flink:
+	- Spark:
+		- Micro-batch streaming processing (with latency of a few seconds)
+		- Checkpoints are done for each micro-batch in a synchronous manner
+		  Spark 对每个微批次数据执行检查点操作，这是同步进行的。每次微批次完成时，它会触发检查点机制，而下一个微批次必须等到检查点完成之后才能运行，这可能会增加整体延迟。
+		- Watermark: a configuration to determine when to drop the late event
+	- Flink:
+		- Real-time streaming processing (with latency of milliseconds)
+		- Checkpoints are done distributedly in an asynchronous manner (more efficient, lower latency)
+		  Flink 的检查点是分布式且异步进行的，即在后台进行。这使得检查点操作更高效，对数据处理的影响更小，从而降低了延迟。
+		- Watermark: a special record to determine when to trigger the event-time related results
+		  Flink 中的水印是特殊的记录，用于确定何时触发基于事件时间的计算。它允许系统处理有序和无序的事件，并保证即使出现乱序事件，时间窗口的结果也是正确的。
+			- Flink uses late handling function (related to watermark) to determine when to drop the late events
