@@ -1586,3 +1586,158 @@ $$
 	- The closer to 1, the better the model fits the data
 ![image.png](https://images.wu.engineer/images/2023/11/25/202311260003386.png)
 
+# 8 - Stream Processing
+## 8.1 Introduction
+### Motivation
+- In many settings, the data is **arriving over time**; which is not received all at once
+	- **Streaming approaches** are designed to process their input **as it is received**
+	- This is in contrast to **offline or batch approaches** that operate on the full dataset, all at once
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261435224.png)
+### Steaming Data
+- Input elements enter at a rapid rate from **input ports** (can from sensor, TCP connection, file stream)
+	- Elements of the stream are sometimes referred to as "tuples"
+	- The stream is potentially *infinite*; **the system cannot store the entire stream accessibly** (due to limited memory)
+### Stateful Stream Processing
+- Not just perform trivial record-at-a-time transformations
+- The ability to store and access intermediate data
+- State can be stored and accessed in many different places including program variables, local files, or embedded or external databases
+Stateful stream processing 是指在流处理中跟踪和更新状态信息的能力。流处理是一种处理实时数据流的技术，数据流是一个连续的、快速的、无限的事件序列。与无状态流处理不同，无状态的只对单个消息进行操作，stateful stream processing 允许在处理数据流的时候考虑历史信息。
+在 stateful stream processing 中，可以保存关于过去事件的信息，这种信息被称为状态（state），并且可以在处理当前和未来事件时使用这些状态。
+## 8.2 Spark
+### Micro-Batch Stream Processing
+- Structured Streaming uses a micro-batch processing model
+	- Divides the data from the input stream into micro batches 微批次
+	- Each bath is processed in the Spark cluster in a distributed manner
+	- Smaller deterministic tasks generate the output in micro-batches
+- Advantages:
+	- quickly and efficiently recover from failures
+	- deterministic nature ensures end-to-end exactly-once processing guarantees
+- Disadvantages: **latencies of a few seconds**
+	- This is actually OK for many applications
+	- Application may incur more than a few seconds delay in other parts of pipeline
+Micro-batch stream processing 是一种处理实时数据流的方法，它将连续的数据流分割成小的、有序的时间窗口，这些窗口被称为“micro-batches”。每个 micro-batch 包含了一个时间段内到达的数据，并作为一个批次进行处理。这种方法介于传统的批处理和纯粹的流处理之间。
+在 micro-batch 流处理模型中：
+1. **数据分批处理**：实时数据流被分割成连续的小批次数据。这些批次按照它们被收集的时间段进行处理。
+2. **定期执行**：每个 micro-batch 都在定期的时间间隔内被处理，例如，每隔几秒或几分钟。
+3. **容错和重放**：由于每个 micro-batch 是独立处理的，这种模型可以容易地实现容错机制，例如如果处理失败，可以重新执行失败的 micro-batch。
+4. **状态管理**：虽然每个批次独立处理，但 stateful 操作可以跨批次维护状态，例如，通过在连续的 micro-batches 间保持状态信息，可以计算滑动窗口聚合。
+5. **延迟与吞吐量的权衡**：Micro-batch 处理模型允许在处理延迟和系统吞吐量之间进行权衡。减少 micro-batch 的大小可以降低延迟，增加批次大小可以提高吞吐量。
+Apache Spark 的 Spark Streaming 是实现 micro-batch 流处理的一个著名例子
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261445974.png)
+### Structured Streaming Processing Model
+- For developers, writing stream processing pipelines should be as easy as writing batch pipelines
+	- A single, unified programming model and interface for batch and stream processing
+	- A broader definition of stream processing
+- The structured streaming programming model: data stream as an unbounded table
+1. **流处理的广义定义**：Structured Streaming将流处理视为一个更宽泛的概念。在这个模型中，实时数据流被看作是一个无界的表（unbounded table），即一个持续增长的表，新数据不断追加到表的末尾，就像流水线上不断推送的数据流。
+2. **无界表的概念**：在Structured Streaming中，数据流被视为一个无界表，开发者可以像查询静态表一样查询这个无界表。这种抽象简化了流处理的开发，因为处理无界表的查询与处理有界表（传统的静态数据集）的查询在概念上是一致的。
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261449569.png)
+
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261453017.png)
+### Five Steps to Define a Streaming Query
+1. **Define input sources**
+	- 选择你的数据来源，这可能是实时日志文件、消息传递系统如Kafka、数据管道如Amazon Kinesis或其他支持的流数据源。
+	- 为你的流数据定义一个输入架构，使得数据可以被流处理框架所解析和处理
+2. **Transform data**
+	- 应用转换操作来处理流数据，比如筛选、聚合或者与其他数据集的连接等。
+	- 这些转换操作将原始输入数据转换成你希望在最终输出中看到的形式。
+3. **Define output sink and output mode**
+	- Output writing details (where and how to write the output)
+	- Processing details (how to process data and how to recover from failures)
+	- 确定你的数据最终将被输出到哪里，这被称作输出汇（sink）。输出汇可以是文件系统、数据库或其他存储系统。
+	- 选择输出模式，这可以是完全覆盖已有数据、只追加新数据、更新改变的数据等。
+	- 配置输出写入的具体细节，比如文件格式、目录结构等。
+4. **Specify processing details**
+	- **Triggering details**: when to trigger the discovery and processing of newly available streaming data
+	  触发细节（Triggering details）：定义何时触发查询处理新的数据。这可以是基于时间的（如每隔一定时间），或者尽可能快地处理新数据
+	- **Checkpoint Location**: store the streaming query process info for failure recovery
+	  检查点位置（Checkpoint Location）：设置一个位置来存储流查询的进度，以便在故障发生后可以从上次的进度恢复。
+5. **Start the query**
+	- 一旦所有的细节都被指定，最后一步是启动查询。
+	- 启动查询后，流处理系统将持续运行，不断处理新的数据流，直到被停止或遇到错误。
+### Incremental Execution of Streaming Queries
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261458480.png)
+是指流处理系统如何持续且有效率地处理连续到达的数据流。在这种执行模式下，系统不会在每次有新数据到达时重新处理整个数据集，而是**仅仅处理自上次查询以来新到达的数据**，这就是“**增量incremental**”的概念。
+
+Apache Spark的Structured Streaming提供了一个例子，它通过微批处理（micro-batch）方式来实现增量执行。在这种模式下，数据被分成小的批次，每个批次代表一个时间段的数据增量，系统连续地处理这些批次。另一方面，系统如Apache Flink提供了真正的流处理，它可以为每个事件单独触发计算，但同样支持增量更新状态。
+### Data Transformation
+- **Stateless Transformation**
+	- Process each row individually **without needing any information from previous rows**
+	- Projection operations: `select()`, `explode()`, `map()`, `flatMap()`
+	- Selection operations: `filter()`, `where
+	- **定义**：Stateless transformations 是指在处理数据时不需要考虑之前的数据或结果的转换。每个数据项都独立于其他数据项进行处理，转换的输出仅仅依赖于当前的输入数据项。
+	- **例子**：一个例子是`map`操作，它将一个函数应用于数据流中的每个元素，输出结果只取决于当前元素。其他例子包括`filter`（过滤数据流中的元素）和`flatMap`（将数据流中的每个元素转换为零个或多个输出元素）。
+- **Stateful Transformation
+	- A simple example: `DataFrame.groupBy().count()`
+	- In every micro-batch, the incremental plan adds the count of new records to the previous count generated by the **previous micro-batch**
+	- The partial count communicated between plans is the **state**
+	- The **state** is maintained in the memory of the Spark executors and is check pointed to the configured location to tolerate 
+	- **定义**：Stateful transformations 是指在处理数据时需要考虑之前的数据或状态的转换。这意味着转换的输出不仅取决于当前的输入数据项，还取决于过去收到的数据。
+	- **例子**：一个典型的例子是`reduceByKey`操作，它会跨多个数据项聚合值（例如，计算总和或平均值）。这需要跟踪状态，因为每个新数据项都可能影响最终的聚合结果。其他例子包括`window`操作（在定义的时间窗口内聚合数据）和`join`操作（可能需要等待匹配的元素到达）。
+### Distributed State Management in Structured Streaming
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261506654.png)
+Each micro-batch reads a new set of words, shuffles them within the executors to group them, computes the counts within the micro-batch, and finally adds them to the running counts to produce the new counts. These new counts are both the output and the state for the next micro-batch, and hence they are cached in the memory of the executors.
+However, it is not sufficient to just keep this state in memory, as any **failure** (either of an executor or of the entire application) will cause the **in-memory state to be lost**. To avoid loss, we synchronously **save** the key/value state update as change logs in the **checkpoint location** provided by the user.
+
+### Stateful Streaming Aggregations
+- **Aggregations Not Based on Time**
+	- Global aggregations:
+		`runningCount = sensorReadings.groupBy().count()`
+	- Grouped aggregations:
+	`baselineValues = sensorReadings.groupBy("sensorID").mean("value")`
+	- All built-in aggregation function in DF are supported
+		-`sum()`, `mean()`, `stddev()`, `countDistinct()`, `collect_set()`, `approx_count_distinct()`, and etc.
+在静态的（非流式的）DataFrame上，你可以使用像`count()`或`reduce()`这样的直接聚合操作，它们会立即计算并返回最终的聚合结果。然而，在流式DataFrame上，这样的操作是不可行的，原因如下：
+1. **连续更新的需求**：在流式环境中，数据是连续不断到来的，这意味着聚合的结果也需要随着新数据的到来而不断更新，而不是计算一次最终结果。
+2. **聚合API的限制**：由于需要连续更新聚合结果，流式DataFrame不支持立即返回结果的聚合操作。因此，你不能在流式DataFrame上直接使用`count()`和`reduce()`这样的操作。
+3. **使用分组聚合**：要在流式DataFrame上执行聚合，你需要使用`groupBy()`或`groupByKey()`方法。这些方法允许你定义一个或多个聚合操作，这些操作随着数据流的进行而持续执行，并且可以返回一个新的流式DataFrame，其中包含了到目前为止的聚合结果。
+4. **输出模式的选择**：在使用`groupBy()`或`groupByKey()`进行流聚合时，你还需要选择一个输出模式，例如“完整模式”（输出当前所有聚合的完整结果）或“更新模式”（仅输出自上次触发以来更改的聚合结果）。
+### Time Semantics
+- Processing Time: the time of stream processing machine
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261517245.png)
+- Event Time: the time an event actually happened
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261518135.png)
+
+- 在上两图的例子中，用户在传输数据流，时限为1分钟。然而在中间一段时间内，用户没有网络信号，这代表着在这段时间内需要发送的数据会被排到有网络信号之后优先发送。然而在没有网络信号的时间内，1分钟的时限过了(8:22 - 8:23)，在之后发送的数据(蓝+绿) 该如何选择？
+
+- **Event Time** completely decouples the processing speed from the results
+- Operations based on event time are predictable and their results are determinstic
+- An event time window computation will yield the same result no matter how fast the stream is processed or when the events arrive the operator
+- But, how long do we have to wait before we can be certain that we have received all events that happened before a certain point of time?
+	- **Watermark**
+- 事件时间将处理速度和结果完全分离。基于事件事件的运算是可预测的，其结果也是确定的。
+- 由于数据到处理节点需要事件，我们使用该事件真实发生的时间来判断是否计算这个数据。无论数据流的处理有多快，或事件会何时到达运算器，事件时间窗口计算都会产生相同的结果
+
+- In Stateful streaming aggregation, we implement aggregations with **Event-Time windows**
+`(sensorReadings.groupBy("sensorID", window("eventTime", "5 minute")).count()`
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261527492.png)
+`(sensorReadings.groupBy("sensorID", window("eventTime", "10 minute", "5 minute")).count()`
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261528159.png)
+- Updated counts in the result table after each five-minute trigger
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261529118.png)
+### Watermark
+- Handling Late Data with Watermarks
+- 10 minute of watermark means that the engine will *never drop* any data that is **delayed by less than 10 minutes** compared to the latest event time seen in the input data.
+```Python
+(sensorReadings
+	 .withWatermark("eventTime", "10 minutes")
+	 .groupBy("sensorID", window("eventTime", "10 minute", "5 minute"))
+	 .count()
+```
+![image.png](https://images.wu.engineer/images/2023/11/26/202311261532850.png)
+
+在事件时间（event time）计算中，引入水印（watermark）的概念是为了处理实时数据流中的延迟数据（late data）问题，并提供一种机制来指定何时可以安全地关闭一个时间窗口的聚合。
+事件时间是指数据生成的实际时间，与处理数据的时间（处理时间，processing time）不同。由于网络延迟、系统故障或数据源的不规律发送行为等原因，数据可能会不按顺序到达处理系统，即使这些数据带有它们的事件时间戳。
+水印是一个与时间相关的阈值，通常设置为“当前已观察到的最大事件时间减去一定延迟量”。它提供了一个处理延迟数据的策略：
+1. **容忍一定的延迟**：通过水印，系统可以等待一段时间来处理迟到的数据，这允许在某个时间窗口内的聚合结果中包含这些迟到的数据。
+2. **触发窗口计算**：当水印超过了某个时间窗口的结束时间时，可以认为该窗口不再会有更多的数据到达，因此可以安全地触发该窗口的计算并输出结果。
+3. **管理状态大小**：流处理系统通常需要维护状态来处理窗口聚合。水印可以作为一个信号，告知系统何时可以清理某个时间窗口的状态，从而控制状态的增长。
+4. **提高结果的确定性**：引入水印可以帮助系统更准确地确定何时可以输出最终结果，减少因为数据乱序到达而导致的结果不确定性。
+### Performance Tuning
+- Besides tuning Spark SQL engine, a few other considerations
+	- Cluster resource provisioning appropriately to run 24/7
+	- Number of partitions for shuffles to be set much lower than batch queries
+	- Setting source rate limits for stability
+	- Multiple streaming queries in the same Spark application
+## 8.3 Flink
+
