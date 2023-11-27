@@ -1,38 +1,38 @@
-## MapReduce
-### MapReduce过程
+# 1 - MapReduce
+## MapReduce过程
 1. Map 映射
 	- map函数将对每个元素根据特定标准映射，输出键值对
 2. Shuffle (Group) 排序分组
 	- 将所有键值对进行排序，并根据键值对中的键(key)进行分组，具有相同键的值会聚集在一起
 3. Reduce 归约
 	- reduce函数对每个键进值进行操作，将它们合并为更小的集合，reduce函数会收到(word, [1,2,3,...])形式的键值对，将值列表合并成单一的数字，例如全部相加。
-### Partitioner 分区器
+## Partitioner 分区器
 - 负责确定在shuffle阶段键值对应该发送给哪个reducer
 - 一般情况下，分区器使用键的哈希值对reduce任务的数量取模决定reducer，用户可以自定义
 - 需要确保相同的键被发送到同一个reducer
-### Combiner 组合器
+## Combiner 组合器
 - 在map阶段将中间键值对合并，减少发送到reducer的键值对数量，提高效率
 - 可以被看作是一个安放在map阶段的reducer
 - Combiner的输出键值对必须和输入键值对有**相同的结构（键值类型）**
-### 数据传输过程
+## 数据传输过程
 1. Mapper：输入数据存储在分布式文件系统中。mapper从**本地磁盘**读取数据，处理他们，在**内存**中生成键值对并缓存。如果键值对过多，超出了可用的内存时，会被排序后写入**本地磁盘**。Mapper的输出会被**写入本地磁盘**
 2. Combiner：从**本地磁盘**读取mapper的结果，处理数据的过程在**内存**中进行，输出会被写入到**本地磁盘**
 3. Partitioner：发生在mapper节点上，从**本地磁盘**读取mapper或combiner的输出数据，在**内存**中处理数据，输出保存在**本地磁盘**
 4. Shuffle：reducer节点会从mapper节点的**本地磁盘**中拉取自己需要的数据，通过网络发送。这些数据被保存在**内存**中，如果数据超出内存空间，则剩余的部分保存在**本地磁盘**
 5. Reducer：如果未完成排序和合并，则这些操作会在**本地磁盘**进行。在内存中应用reduce函数生成输出。最后reducer的输出会被写回分布式文件系统中
-### Secondary Sort
+## Secondary Sort
 在MapReduce框架中，数据是以键值对(key-value pairs)的形式进行处理的。在这个过程中，Map阶段生成的键值对会被分组(grouped)和排序(sorted)，然后传递给Reduce阶段。默认情况下，MapReduce只会按键（key）进行排序，这称为“自然排序”。
 如果我们需要以一种额外的方式对值进行排序，则这被称作为二次排序"secondary sort":
 - 定义一个新的“复合键”（composite key），格式为(K1, K2)，其中K1是原始键（也称为“自然键”），K2是我们希望用于排序的变量。在这种情况下，复合键将会影响如何对数据进行分区和排序：
 	- **Partitioner**: 需要自定义分区器，使其仅按K1进行分区，而不是按复合键(K1, K2)分区。这样可以保证相同的K1会被发送到同一个reducer，但是在reducer内部，数据会根据K2的值进行排序。
 这样，每个reducer接收的数据就会首先根据K1分组，然后在每个组内根据K2排序，实现了二次排序的目的
-## NoSQL
-### Broadcast (Map) Join
+# 2 - NoSQL
+## Broadcast (Map) Join
 1. **选择较小的数据集**：在两个需要连接的数据集中，选择较小的那个进行广播。这意味着这个数据集会被发送到集群中的每个节点，以便于本地连接操作。
 2. **广播到所有节点**：所选择的较小数据集会被复制并广播到集群中的每个节点。在Spark中，这通常通过`broadcast`函数实现。
 3. **本地连接**：大数据集不动，较小的数据集被广播到每个节点后，大数据集的每个分区会与本地节点上的小数据集进行连接操作。由于小数据集已经在每个节点的内存中，这大大减少了网络传输的需求，并且可以并行地在每个节点上快速完成连接。
 4. **减少数据洗牌**：使用broadcast join 可以避免在网络中进行昂贵的数据洗牌操作，因为只有小数据集在节点间移动，而大数据集则保持静止。
-### Reduce-side (Common) Join
+## Reduce-side (Common) Join
 Reduce side join 是在 MapReduce 编程模型中用于处理大规模数据集连接的一种机制。这种类型的 join 操作涉及到 Map 和 Reduce 两个阶段，在这个过程中，两个数据集都参与到数据的洗牌和排序过程中。这种 join 在处理两个大数据集的连接时尤其有用，因为它不需要将整个数据集加载到内存中。
 以下是 Reduce side join 的基本步骤：
 1. **Map 阶段**：
@@ -41,15 +41,14 @@ Reduce side join 是在 MapReduce 编程模型中用于处理大规模数据集�
 2. **Shuffle 阶段**：
     - Shuffle 过程将 Map 输出的中间键值对根据键进行排序和分组。所有共同键的值都会被集中到一起。
 3. **Reduce 阶段**：
-    
     - 在 Reduce 阶段，每个 Reduce 任务接收到了包含相同键的所有值的列表。这个列表中会同时包含来自数据集A和B的记录。
     - Reduce 函数然后遍历这些值，根据键值对中的标识将来自数据集A和B的记录分开，并执行连接操作。
     - 连接后的结果会被写出到最终的输出文件中。
 
-Reduce side join 在处理大型分布式数据集时非常强大，但也有其缺点。它需要大量的数据在网络中移动（即数据洗牌），这可能会导致较高的网络传输开销，并且如果连接的键有很多重复值，也可能会在 Reduce 阶段产生瓶颈。
-### Similarity Check
+Reduce side join 缺点: 它需要大量的数据在网络中移动（即数据洗牌），这可能会导致较高的网络传输开销，并且如果连接的键有很多重复值，也可能会在 Reduce 阶段产生瓶颈。
+## Similarity Check
 **相似度量**：距离越小 = 相似度越高
-#### Jaccard Similarity
+### Jaccard Similarity
 - Jaccard Similarity
 $$
 S_{Jaccard}(A, B) = \frac {|A\cap B|} {|A \cup B|}
@@ -59,14 +58,14 @@ $$
 $$
 d_{Jaccard}(A,B) = 1 - s_{Jaccard}(A,B)
 $$
-### Similarity Document Check
-#### Step 1: Shingling
+## Similarity Document Check
+### Step 1: Shingling
 分词：这一步将文档转换为一组短语（称为“shingles”或“k-grams”）。每个shingle通常是文档中连续的k个项（可以是字、词或字符）。例如，对于句子“The quick brown fox jumps over the lazy dog”，如果我们使用2-grams（bigrams）作为shingles，那么一个可能的shingle集合包括{"The quick", "quick brown", "brown fox", ...}。这一步的目的是创建文档的特征集，以便于比较。
 对于两个文档，我们使用一个矩阵将两个文档$D_1$, $D_2$中的分词表示出来，1代表存在与文档中，0则没有
 ![image.png](https://images.wu.engineer/images/2023/11/23/202311231428517.png)
-#### Step 2: Min-Hashing
-最小哈希：这一步的目的是将上一步得到的shingle集合转换为文档的“签名”（signature），这些签名在压缩数据的同时保留了文档间的相似性信息。签名是一个较短的数据块，它代表了文档内容的摘要。Min-hashing算法通过对每个文档的shingle集合使用哈希函数，将其转换为一个较短的哈希值序列（即签名），而且这一转换过程保留了原始shingle集合间的相似度结构。具有相同或相似签名的文档被认为是“候选对”（candidate pairs），这意味着它们很可能是近似重复的文档。
-### NoSQL Pros and Cons
+### Step 2: Min-Hashing
+**最小哈希**：这一步的目的是将上一步得到的shingle集合转换为文档的“签名”（signature），这些签名在压缩数据的同时保留了文档间的相似性信息。签名是一个较短的数据块，它代表了文档内容的摘要。Min-hashing算法通过对每个文档的shingle集合使用哈希函数，将其转换为一个较短的哈希值序列（即签名），而且这一转换过程保留了原始shingle集合间的相似度结构。具有相同或相似签名的文档被认为是“候选对”（candidate pairs），这意味着它们很可能是近似重复的文档。
+## NoSQL Pros and Cons
 相对于传统关系型数据库，NoSQL数据库的**优点**包括：
 - **可扩展性**：更容易扩展到多个服务器。
 - **灵活性**：可以适应多变的数据模型和不断变化的数据类型。
@@ -74,15 +73,15 @@ $$
 NoSQL数据库的**缺点**可能包括：
 - **一致性**：可能牺牲事务的严格一致性来获取性能和可扩展性。
 - **复杂的数据关联**：对于需要复杂关联的数据，关系型数据库可能更加适合。
-### BASE and ACID
-- ACID
+## BASE and ACID
+- ### ACID
 	- Relational DBMS provide stronger (ACID) guarantees
 	- **ACID**是传统关系型数据库的设计理念，它强调的是数据操作的可靠性和一致性：
 		1. **原子性（Atomicity）**：事务中的所有操作都是一个不可分割的工作单位，要么全部完成，要么全部不做。
 		2. **一致性（Consistency）**：事务执行结果必须使数据库从一个一致性状态转变到另一个一致性状态。
 		3. **隔离性（Isolation）**：并发执行的事务之间不会互相影响。
 		4. **持久性（Durability）**：一旦事务提交，其所做的修改将永久保存在数据库中。
-- BASE
+- ### BASE
 	- In many NoSQL system provide weaker "BASE" approach
 	- **BASE**则是许多NoSQL数据库系统遵循的理念，它更强调系统的可用性和容错性：
 		1. **基本可用（Basically Available）**：系统保证可用性，但可能因为响应时间的延迟或系统功能的减少而不是完全可用。
@@ -106,22 +105,22 @@ NoSQL数据库的**缺点**可能包括：
 		    - 传统的事务特性（如ACID）在很多NoSQL数据库中是不支持的，或者只有部分支持，这对于需要强事务性的系统来说是一个限制。
 		4. **数据冗余**：
 		    - 为了提供高可用性和性能，NoSQL数据库可能会存储数据副本，这可能导致数据存储的冗余
-### NoSQL Types
-- **键值存储（Key-Value Stores）**：
+## NoSQL Types
+- ### 键值存储（Key-Value Stores：
     - 最简单的NoSQL数据库，以键值对的形式存储数据。
     - 键值存储的一些特点包括：
         1. **无模式**：键值存储通常不具备固定的模式或结构，数据可以以任何形式存储为值，如字符串、JSON、BLOB等。
         2. **无关联**：它们不提供原生的方式来直接关联不同的键值对或模仿SQL中的表间连接。关系必须由应用逻辑来管理。
         3. **单一的数据集合**：虽然某些键值存储系统可能允许你创建类似于“表”的不同命名空间或数据集合，但这些通常不提供连接功能。
         4. **自定义索引**：在键值存储中，创建复杂索引需要应用层面的设计，比如通过维护一个特殊的键，它的值包含了需要被索引的数据项的键的列表。
-    - **键值存储的优势**:
+    - ### 键值存储的优势:
         1. **性能**：键值存储提供非常快速的读写能力，因为它们通过键直接访问值，通常这些操作可以在O(1)时间内完成。
         2. **可扩展性**：键值存储通常设计为易于水平扩展，能够处理更多的负载通过简单地增加更多的节点。
         3. **简单性**：由于其简单的数据模型，键值存储通常更易于设置和维护。
         4. **灵活性**：键值存储不需要预定义的模式，所以你可以随意存储不同结构的数据。
     - 例子：Redis, Amazon DynamoDB, Riak。
 
-- **文档存储（Document Stores）**：
+- ### 文档存储（Document Stores）：
     - 以下是文档存储NoSQL数据库的一些关键特点：
         1. **灵活的数据模型**：文档可以包含嵌套的数据结构，如数组和子文档。由于没有固定的模式，文档的结构可以动态更改。
         2. **自描述性**：文档存储通常是自描述的，意味着数据结构描述包含在文档本身中，这使得数据的解析和理解变得直观。
@@ -134,7 +133,7 @@ NoSQL数据库的**缺点**可能包括：
     - 然而，文档数据库也有其局限性，如它们可能不支持像传统SQL数据库那样复杂的事务管理，而且当涉及到多个文档或集合时，维护数据一致性可能会更加复杂。
     - 例子：MongoDB, CouchDB, Firestore。
 
-- **宽列存储（Wide-Column Stores）**：
+- ### 宽列存储（Wide-Column Stores）：
     - 以列族为中心存储数据，允许存储大量数据。
     - 以下是宽列存储的一些核心特点：
         1. **列族（Column Families）**：
@@ -152,7 +151,7 @@ NoSQL数据库的**缺点**可能包括：
             - 它们通常自带分布式架构，能够处理大规模数据分布在多个物理位置。
         - 例子：Apache Cassandra, HBase, Google Bigtable。
 
-- **图形数据库（Graph Databases）**：
+- ### 图形数据库（Graph Databases）：
 	- 使用图结构存储实体以及实体之间的关系，适合复杂的关系数据。
 	- **核心概念**：
 	    1. **节点（Nodes）**：
@@ -175,7 +174,7 @@ NoSQL数据库的**缺点**可能包括：
 		4. **直观性**：图形数据库的结构使得数据模型和现实世界的网络直观对应，方便理解和查询。
 	- 例子：Neo4j, JanusGraph, Amazon Neptune。
 
-- **矢量数据库（Vector Databases）**
+- ### 矢量数据库（Vector Databases）
 	- 矢量数据库（Vector Databases）是专门设计来存储和查询矢量空间数据的数据库系统。在这个上下文中，“矢量”通常指的是多维的数值数组，它们代表了数据点在特定的特征空间中的位置。这种类型的数据库在处理大规模机器学习和人工智能任务中尤为重要，尤其是在执行相似性搜索时。
 	- **核心概念**：
 		1. **特征向量（Feature Vectors）**：
@@ -191,17 +190,17 @@ NoSQL数据库的**缺点**可能包括：
 		    - 它们可以处理数以亿计的向量，并且在这样的规模上仍能保持查询的响应时间。
 		3. **机器学习集成**：
 		    - 矢量数据库经常与机器学习模型和流程紧密集成，以便直接利用模型生成的特征向量。
-### Consistency
-- **Strong consistency**
+## Consistency
+- ### Strong consistency
 	- 任何数据的更新操作完成后，后续的任何读取操作都将**立即看到这个更新**。换句话说，系统确保所有节点上的数据在**任何时间点都是一致的**。
 	- 这通常意味着系统需要在更新数据时进行一定的协调，以确保所有的复制节点都同步更新，这可能会导致写操作延迟增加。
 	- 强一致性模型适合对数据一致性要求极高的场景，如金融交易系统。
-- **Eventual consistency**
+- ### Eventual consistency
 	- 数据的更新**不需要立即反映到所有节点上**。系统只保证如果没有新的更新发生，那么最终所有的复制节点将会达到一个一致的状态。
 	- 这意味着在达到一致性状态之前，不同的节点可**能会看到不同版本的数据**，从而允许系统在某个时间点上存在**数据不一致**的情况。
 	- 最终一致性模型提供了**更高的可用性和分区容错性，但牺牲了实时一致性保证**。
 	- 这种模型适合对可用性要求高，但可以容忍短时间内数据不一致的应用，如社交网络中的时间线更新。
-- **Duplication (Denormalisation)**
+- ### Duplication (Denormalisation)
 	- 去规范化（Denormalization）是数据库优化的一个过程，特别是在关系型数据库的上下文中。高度规范化可能导致性能问题，因为复杂的查询可能需要多个表之间的连接操作，这在大型数据库中可能会非常耗时。去规范化涉及减少数据库的规范化级别，通常通过合并表格、添加冗余数据或组合字段来实现。其主要目的是提高数据库的查询性能，尤其是在大数据量和复杂查询的情况下。
 	- 去规范化的策略包括：
 		1. **添加冗余列**：在一个表中包含来自另一个表的数据，以避免连接操作。
@@ -209,23 +208,275 @@ NoSQL数据库的**缺点**可能包括：
 		3. **预计算聚合**：存储计算结果（如总和、平均值等）而不是在每次查询时都重新计算。
 		4. **创建冗余索引**：创建额外的索引来加速查询，即使这些索引会占用更多的存储空间。
 	- 去规范化的缺点是可能导致数据更新、插入和删除操作的复杂性增加，因为需要维护额外的冗余数据的一致性。此外，它也增加了存储需求，因为相同的数据会在多个地方存储副本。
-### Data Partitioning
-- Table Partitioning
-- Horizontal Partitioning
-- Range Partitioning
-- Hash Partitioning
-- Consistent Hashing
-### MongoDB
-- Routers
-- Config Server
-- Replica Sets
-- Replication
+## Data Partitioning
+- ### Table Partitioning
+	- 表分区（Table Partitioning）把一个大表被分解为多个更小、更易于管理的逻辑分区，但在逻辑上仍然作为单个表对外呈现。
+	- 每个分区可以存储在不同的物理位置，且可以单独优化和维护。
+	- 表分区通常用于提高查询性能、优化数据加载、提高数据维护效率以及改善备份恢复操作的速度。
+	- 通过表分区，一张表被横向分割成多个小表，每个小表都有和大表相同的列数量，但是行数量被分割
+- ### Horizontal Partitioning
+	- 水平分区（Horizontal Partitioning）也称作分片（Sharding），以及如何选择合适的分区键（Partition Key）或分片键（Shard Key）。
+		1. **不同的元组存储在不同的节点**： 这意味着在一个分布式数据库系统中，表中的每一行（或称作元组）根据某种规则，被分散存储在不同的数据库节点上。这些节点可以是同一个数据中心内的不同服务器，也可以是分布在不同地理位置的服务器。
+		2. **Partition Key 分区键**（或shard key分片键）： 分区键是用来决定每个元组存储位置的变量。根据分区键的值，数据库管理系统将元组分配到不同的节点上。拥有相同分区键值的元组会被存储在相同的节点上。
+		3. **如何选择分区键**： 选择分区键是一个重要的决策，因为它会直接影响查询的效率和系统的扩展性。理想的分区键应该满足以下条件：
+		    - **查询过滤**：如果某个列经常被用作查询条件（WHERE子句），那么这个列可能是一个好的分区键。
+		    - **分组统计**：如果经常需要按某个列进行分组（GROUP BY子句）进行聚合运算，那么这个列也可能是一个好的分区键。
+		    - **负载均衡**：分区键应该能够确保数据和负载在各个节点间均匀分布，避免某个节点数据量过大或查询负载过高。
+	- 水平分区将表中不同的行按照**分区键**的不同分割到不同的节点中。例如我们使用city为分区键，则city为”New York”的所有行都被分到节点A，city为”Singapore”的所有行被分到节点B
+		- 如果分区之后的查询操作经常以城市做查询，则这个分区键是**高效率的**
+		- 如果每个城市的行数相差特别大，则节点的存储会**失衡**
+		- 如果城市的数量很少，我们称之为**low cardinality 低基数**
+- ### Range Partitioning
+	- 范围分区是通过确定**键值的范围**来实现的。数据库系统根据预设的键值范围，把数据分散到不同的分区。例如，user_id 在1到100的用户记录可能存储在分区1，而user_id 在101到200的记录存储在分区2。
+	- 如果经常需要执行基于范围的查询，例如查询 user_id 小于50的所有用户，那么范围分区非常有用。在这种情况下，查询时可以跳过不包含相关数据的分区（如上例中的分区2），这种方法称为“分区裁剪”（Partition Pruning），它可以显著节省查询处理的工作量。
+	- **可能导致分区不平衡**： 范围分区可能会导致数据分布不均衡。例如，如果大量行的 user_id 都是0，那么这些行都会被存储在同一个分区中，这会导致该分区数据过多，而其他分区数据不足。
+	- **自动的范围划分**： 通常，分布式数据库系统会有一个“平衡器”（Balancer）功能，自动调整分区范围，试图保持各个分区的数据量平衡。这意味着系统会监控数据的分布情况，并在必要时重新划分分区范围，以保持分区之间的均衡。
+- ### Hash Partitioning
+	- 哈希分区根据特定的键值的哈希函数输出来确定其分到哪个节点
+	- **如何进行分区**：
+		- 每个节点在这个圆环上有一个“标记”（通常可以想象为一个矩形或点），代表其在哈希空间上的位置。
+		- 每个元组（数据项）根据其哈希值被放置到圆环上的某个位置，然后分配给顺时针方向上的第一个节点标记。
+	- **删除节点**：
+		- 当需要删除一个节点时，圆环上的这个节点标记被移除，原本分配给这个节点的所有元组会被重新分配给顺时针方向上的下一个节点。
+	- **添加节点**：
+		- 相似地，添加一个新节点时，在圆环上为其增加一个新的标记，并将现在应该属于这个新节点的元组重新分配给它。
+	- **简单复制策略**：
+		- 可以通过在顺时针方向上的几个额外节点中复制元组来实现元组的简单复制，以增加数据的可用性和耐久性。
+	- **多重标记**：
+		- 每个节点可以在圆环上拥有多个标记。对于每个元组，依然是分配给顺时针方向上最近的标记。
+		- 这样做的好处是，当删除一个节点时，其元组不会全部重新分配给同一个节点，这有助于更好地平衡负载。
+	- **优势**：哈希分区在应对根据被哈希的键查询一个特定数据项时，可以直接计算出该项被存储在哪个节点中。负载均衡，水平扩展很容易
+	- **劣势**：如果某些键非常频繁，则可能会造成数据倾斜；可能的哈希碰撞造成某个节点存储了过多的数据；顺序访问困难；减少分区数量需要大量计算
+## MongoDB
+- ### Routers
+	- 路由器在MongoDB中通常指的是`mongos`实例。`mongos`的作用是作为前端服务，接受客户端的数据库操作请求，并将这些请求路由到正确的数据分片上。
+	- 客户端不直接与存储数据的节点通信，而是通过`mongos`来进行。当一个查询被执行时，`mongos`会确定需要访问哪些分片，并将查询转发到这些分片上。
+	- 在一个拥有多个分片的大型系统中，可能会有多个`mongos`实例来分散客户端请求的负载。
+- ### Config Server
+	- 配置服务器存储了整个MongoDB集群的元数据和配置信息。这包括分片的信息、路由策略、副本集的配置等。
+	- 在集群中，通常有三个配置服务器实例来保证高可用性和数据一致性。
+	- `mongos`查询这些配置信息来了解数据的分布情况，并据此将客户端请求路由到正确的分片。
+- ### Replica Sets
+	-  副本集是MongoDB提供数据冗余和高可用性的方式。一个副本集包含了多个数据节点，其中一个是主节点，其他是从节点。
+	- 主节点处理所有的写操作，而从节点则复制主节点的数据变更。这样可以在主节点出现故障时自动切换到从节点，继续提供服务，无需数据丢失的风险。
+	- 副本集也可以用于读取分离，即读操作可以在从节点上进行，分担主节点的读取压力。
+- ### Read or Write Query
+	- For example, a query `find({'class': 'cs5425'})` is pushed from the app
+		1. Query is issued to a **router** (`mongos`) instance
+		2. With help of **config server**, `mongos` determines which shard (**replica set**) to query
+		3. Query is sent to the relevant shards (partition pruning)
+			- 分区裁剪（Partition Pruning）是数据库查询优化器用来提高查询效率的一种技术。当查询操作针对一个分区表执行时，查询优化器会分析查询条件，以决定是否有些分区可以被排除在查询之外，因为它们不包含符合条件的数据。这样，数据库在执行查询时就不会扫描这些不相关的分区，从而节省了时间和计算资源。
+			- Example: when reading a specific value of the shard key, the config server can determine that the query only needs to go to one shard (the one that contains the value of the shard key); writes are similar
+			- But if the query is based on a key other than the shard key, which is relevant to all shards, and the query will go to all shards
+		4. Shards run query on their data, and send results `{'name': 'bob', 'class': 'cs5425'` back to `mongos`
+		5. `mongos` merge the query results and returns the merged results to the application
+- ### Replication
+	- Common configuration: 1 primary, 2 secondaries
+	- Write: 
+		- 主节点接收所有的写操作
+		- 写入操作被记录到“operation log”
+		- 从节点复制“operation log”然后应用到本地的数据副本中
+	- Read:
+		- 用户可以指定从主节点还是子节点读取
+		- 从子节点读取可以做到负载均衡和可能的更低延迟，但可能会出现读取到过时的数据
+# 3 - Spark
+## Hadoop vs Spark
+- Hadoop在MapReduce的过程中，**中间数据需要被写入到磁盘**，并在机器间进行数据洗牌，这个过程是缓慢的。因为每次任务运行完之后，**输出都需要写到磁盘**，再被下一个任务读取，这造成了高磁盘开销。
+- 同时，MapReduce**不适合迭代处理**，迭代处理指的是多次地对数据集进行操作，每次只修改一小部分数据。在Hadoop中，迭代处理的每一步都会被创建为一个**独立的MapReduce任务**，这使得效率变得低下。
 
-
+- **Spark**设计了一种不同的数据处理模型，它能够将大部分中间结果(RDD)存储在内存中，这使得数据处理速度大大提升，尤其是对于需要多次迭代的计算任务，例如图算法或者机器学习算法。因为这些任务需要多次读取和处理数据，使用Spark可以显著减少读写磁盘的次数，从而提高速度。
+- 当内存不足以存储所有中间结果时，Spark会将数据**“溢出”到磁盘**，这仍然需要磁盘I/O，但这样的设计意味着只有在必要时才会访问磁盘，而不是像Hadoop那样的频繁磁盘读写。
+## Spark architecture
+![image.png](https://images.wu.engineer/images/2023/11/25/202311251621778.png)
+- **驱动进程(Driver Process)**:
+	- 驱动进程是Spark应用程序的主控制节点。它负责响应用户的输入，管理Spark应用程序的生命周期（如启动、停止），并且负责将工作分配给执行器。
+	- 驱动进程执行用户编写的主程序，并且创建出一个`SparkContext`对象。这个`SparkContext`会与集群管理器(Cluster Manager)通信，申请资源并在资源被分配后，将代码任务分发给集群中的执行器（Executors）。
+- **执行器(Executer)**:
+	- 执行器是在集群中的工作节点上运行的进程，它们负责执行由驱动进程(Driver Process)分配给它们的代码，并返回计算结果。
+	- 每个执行器负责处理分配给其的数据，并执行任务。执行器还负责存储它们计算的结果数据，这些数据可能是RDDs（弹性分布式数据集）的一部分，或者是广播变量和累加器。
+- **集群管理器（Cluster Manager）**：
+	- 集群管理器负责在Spark应用程序请求时分配计算资源。。
+	- 集群管理器的主要角色是在计算资源（如CPU和内存）和集群中可用的物理机器之间进行资源调度。
+- **本地模式（Local Mode）**：
+	- 当Spark在本地模式下运行时，上述所有的进程（驱动进程、执行器、甚至是模拟的“集群管理器”）都会在同一台机器上运行。
+## RDD
+### RDD介绍，特性
+RDD（Resilient Distributed Dataset）是Spark中的一个基本概念，是一个不可变的、分布式的数据对象集合，能够并行操作。RDD可以跨集群的多个节点分布存储数据，提供了一种高度的容错性、并行性和灵活性。
+- RDD一般可以被看作**是所有中间数据的统称**
+- 1. **不可变性**：一旦创建，RDD的数据就不可以被改变。这有助于容错，因为系统可以根据原始数据源重新构建RDD。
+2. **弹性**：RDD能够在节点失败时重新构建丢失的数据分区，因为RDD的操作都是基于转换的，这些转换是可以记录的，并且是确定性的。这意味着如果某个节点的数据丢失，Spark可以使用原始数据和转换操作日志来重新计算丢失的数据分区。
+3. **分布式**：RDD的数据自动被分散到集群中的多个节点上，可以在这些节点上并行处理。
+4. **基于转换的操作**：RDD的操作是通过转换（如`map`、`filter`、`reduce`等）来实现的，每个转换操作都会生成一个新的RDD。转换是懒执行的，也就是说，只有在需要结果的时候才会执行。
+5. **容错性**：RDD通过记录转换的 lineage（血统信息）来提供容错能力。如果由于某种原因某个分区的数据丢失，Spark可以通过这个 lineage 来重新计算丢失的分区数据。
+6. **内存和磁盘存储**：RDD可以存储在内存中，也可以存储在磁盘上，或者两者的组合。根据RDD的存储和持久化策略，可以优化性能。
+### Transformations 转换
+转换（Transformation）是**对数据集进行操作的函数**，它接收当前的RDD，应用一个计算函数，并返回一个新的RDD。转换是**惰性**执行的，也就是说，它们不会立即计算结果。只有在行动（Action）操作请求时，例如当需要将数据保存到文件或者将数据集聚合计算结果返回给驱动程序时，转换才会被触发执行。
+- **Narrow Transformation**: 窄转换是指不需要跨分区数据混洗（shuffle）的转换操作。在这种转换中，每个输出分区只需要一个或少数几个输入分区的数据。这意味着这些操作可以在单个节点上独立、高效地完成，不需要网络通信。
+	- `map`：对数据集中的每个元素应用一个函数。
+	- `filter`：过滤出满足特定条件的元素。
+	- `flatMap`：将数据集中的每个元素转换为多个元素。
+	- `mapPartitions`：对数据集的每个分区应用一个函数。
+	- `range`: 使用range函数创建一个数据集
+- **Wide Transformation**: 宽转换是指需要跨分区数据混洗的转换操作。在这种转换中，每个输出分区可能依赖于所有输入分区的数据。因此，这些操作通常需要跨节点的广泛数据交换和网络通信。
+	- `groupBy`：根据某个键将数据集分组。
+	- `reduceByKey`：根据键值对数据集进行聚合操作。
+	- `join`：将两个数据集根据共同的键连接起来。
+	- `sortBy`：按照某个或某些键对数据集排序。
+### Actions 执行
+**Actions** trigger Spark to compute a result from a series of transformations
+Examples of actions: `show`, `count`, `save`, `collect`
+## Caching and DAGs
+### Caching
+- 在处理文件时，如果我们需要**多次处理**一个文件才能得到正确的输出结果时，最好在开始处理（即开始action）之前将文件**写入内存**
+```Python
+# Load file from HDFS (Hadoop distributed file system), then create an RDD
+# sc for SparkContext
+lines = sc.textfile("hdfs://...")
+# Search for the Error line, create a new RDD with Error line
+errors = lines.filter(lambda s: s.startwith("Error"))
+# Split error line by tab, and extract the third sentence into a new RDD
+messages = errors.map(lambda s: s.split("\t")[2])
+# Store messages into memory
+messages.cache()
+# Filter mysql in messages, then count them (from the memory, faster)
+messages.filter(lambda s: "mysql" in s).count()
+messages.filter(lambda s: "Spark" in s).count()
+```
+- `message.cache()`将RDD写入内存，`message.persist(option)`可以选择将RDD写入内存，硬盘，或off-heap memory
+### Narrow and Wide Dependencies
+等同于narrow and wide transformation
+### DAG
+**DAG和执行阶段**
+- 在Spark中，任务的执行通过一个有向无环图（DAG）来表示，DAG中的节点代表RDD，边代表转换操作（即依赖关系）。
+- 连续的窄依赖被组织成为一个“阶段”（Stage）。在这些阶段内，Spark可以连续地在同一台机器上执行多个转换，而不需要在节点之间移动数据。
+- 不同的阶段之间，由于宽依赖的存在，需要进行数据的“洗牌”（Shuffle），即跨分区交换数据。这个过程类似于MapReduce中的shuffle，并且通常涉及到将中间结果写入磁盘。
+- 由于数据洗牌是一个耗时的过程，涉及到网络传输和磁盘I/O，所以在Spark程序中尽量减少洗牌是提高性能的一个重要实践。这意味着尽可能地利用窄依赖，以及在不可避免需要进行洗牌的宽依赖时，尽量减少需要交换的数据量
+### Lineage and Fault Tolerance
+**容错机制对比**
+- 在Hadoop的MapReduce中，容错是通过在磁盘上复制数据来实现的。如果一个数据节点失败，系统可以从副本中恢复数据。
+- Spark采取了不同的方法。由于Spark尝试将所有数据保存在内存中以提高速度，而内存资源相比磁盘更有限且成本更高，因此它不依赖于数据的复制来实现容错。
+**血统（Lineage）方法**
+- Spark的RDD有一种内建的血统记录，即记录了它是如何从其他RDD转换来的。
+- 当一个工作节点（Worker Node）发生故障，Spark会启动一个新的工作节点来替代它。
+- 利用DAG（有向无环图），Spark能够重新计算丢失的分区数据。DAG记录了RDD之间的所有转换关系，所以Spark可以通过血统信息追溯到原始的数据源，并且只重新计算丢失分区的RDD，而不需要重新计算整个数据集。
+- 这种方法效率很高，因为它避免了不必要的数据复制，并且只在数据丢失时才重新计算数据。
+- 在Hadoop中，一份数据会被复制三份以防止数据丢失。然而在Spark中，由于大部分数据都保存在内存中，在内存中复制数据会非常昂贵
+## DataFrames and Datasets
+- DataFrame 提供了一个类似于关系数据库中表格或者 Python 的 pandas 库中 DataFrame 的概念。它代表了以行和列组织的数据集，其中每列有一个名称和数据类型。
+- DataFrame 的特点
+    1. **表格形式的结构**：
+        - DataFrame 提供了一个丰富的数据结构，每列都有固定的数据类型，而且它们可以容纳复杂的数据类型，如结构体和数组。
+    2. **SQL类操作**：
+        - DataFrame 支持多种操作，这些操作类似于 SQL 语言，如选择（select）、过滤（filter）、聚合（aggregate）等。
+    3. **性能优化**：
+        - DataFrame 的操作是通过 Catalyst 优化器进行优化的，这是 Spark SQL 引擎的一部分。Catalyst 优化器会生成高效的执行计划。
+    4. **易用性**：
+        - 相比于低级的 RDD API，DataFrame 提供了更简单、更直观的操作接口，对于数据分析师和数据科学家来说更加友好。
+    5. **兼容性**：
+        - DataFrame 可以从多种数据源创建，如 Hive 表、数据库、JSON、CSV 文件等。
+    6. **内存计算**：
+        - 类似于 RDD，DataFrame 也可以持久化到内存中，这对于迭代算法或多个操作中需要重用 DataFrame 的场景非常有用。
+- DataFrame 与 RDD 的关系
+    - **DataFrame API 是 RDD 的封装**：
+        - DataFrame 的操作最终会映射到 RDD 上。Spark 在执行计划中将 DataFrame 的操作转换为 RDD 操作。
+    - **推荐使用 DataFrame API**：
+        - Spark 官方推荐使用 DataFrame API 进行数据处理，因为 DataFrame API 提供了更好的性能和易用性。
+    - **RDD 仍然有其用处**：
+        - 尽管 DataFrame API 被推荐用于大多数任务，但在某些需要精细控制的场景中，直接使用 RDD 仍然是有用的，比如进行一些定制化的数据转换和操作。
+- **Transformation**: 可以使用**SQL命令**直接对DF进行转换
+- ### Dataset
+	- DataSet API 被认为是类型安全的（type safe），这是因为它提供了一个强类型的接口，允许编译器在编译时检查类型错误。这与 DataFrame 相对，DataFrame 是一个非类型安全的接口，因为它的列类型只有在运行时才被知晓和检查。
+## Machine Learning with Spark ML
+- ### Problem Setup
+	- **Classification**: Categorise samples into classes, given training data
+	- **Regression**: predict *numeric* labels, given training data
+- ### Data Processing
+	- #### Handle missing values:
+		- Delete rows with missing values
+		- Fill in the missing value based on:
+			- mean/median
+			- fitting a **regression** model to predict
+			- **Dummy variables**: optionally insert a new column which is 1 if the variable was missing, and 0 otherwise
+	- #### Categorical Encoding
+		- Convert **categorical** feature to **numerical** features
+		- E.g., the risk rating [Low, Medium, High] will be converted into [0, 1, 2]
+		- 可以展示这个类别中暗示的数学关系，可以在regression中使用
+		- 也有可能引入不想要的数字关系numerical relationship
+	- #### One Hot Encoding
+		- Convert **discrete feature** to a series of **binary features**
+		- 会移除数值关系
+	- #### Normalisation
+		- 在数据预处理中进行归一化（Normalization）是为了调整数值型数据的尺度，使得所有的特征都被统一到一个固定范围内，通常是[0, 1]或者[-1, 1]。归一化的原因和好处包括：
+			1. **提高收敛速度**：在梯度下降等优化算法中，归一化可以帮助加快收敛速度。如果不同的特征具有不同的尺度，那么优化过程可能会变得很慢，因为小尺度的特征需要更大的权重变化才能在损失函数中产生相同的影响。
+			2. **消除量纲影响**：归一化可以消除不同特征的量纲影响，使得模型不会因为特征的尺度而偏向于某些特征。
+			3. **提高算法精度**：某些算法，如K-最近邻（K-NN）和主成分分析（PCA），是基于距离的算法，如果不同的特征有不同的尺度，那么距离计算可能会被尺度大的特征主导，导致模型性能下降。
+			4. **避免数值计算问题**：过大或过小的数值在计算机中可能会导致数值溢出或下溢，归一化可以避免这些数值问题。
+			5. **满足模型的假设**：一些模型对数据有特定的假设，例如线性回归和逻辑回归假设所有的特征都是同等重要的，归一化可以帮助满足这些假设。
+- ### Training & Testing
+	- ##### Sigmoid Function
+		- The sigmoid function $\sigma(x)$ maps the real numbers to the range (0,1):
+		$$
+		\sigma(x) = \frac 1 {1+e^{-x}}
+		$$
+- ### Evaluation
+	- 其中，表中的四个区域代表：
+		- TN (True Negative): test correct, (test) output negative
+		- TP (True Positive): test correct, output positive
+		- FN (False Negative): test wrong, output negative
+		- FP (False Positive): test wrong, output positive
+	- 我们可以用这四个数据计算不同的性能指标：
+		- Accuracy: fraction of correct predictions, $\frac {TN+TP} {TN+TP+FN+FP}$
+		- Sensitivity: fraction of positive cases that are detected, $\frac {TP} {FN+TP}$
+		- Specificity: fraction of actual negatives that are correctly identified, $\frac {TN} {TN+FP}$
+- ### Estimator
+	- **Estimator** 是一个算法，它可以基于给定的数据集学习或拟合出一些模型参数。换句话说，它是一个学习算法或者任何一个可以拟合或训练数据的对象。
+	- 在Spark MLlib中，Estimator抽象表示一个学习算法，或者更具体地说，是一个`fit()`方法。当你对一个数据集调用`fit()`方法时，它会产生一个模型，这个模型就是一个Transformer。
+	- 举个例子，一个用于分类的逻辑回归或者决策树算法，在训练数据上训练完成后，会变成一个Estimator。
+- ### Transformer
+	- **Transformer** 是一个转换器，它把一个数据集转换成另一个数据集。通常，在机器学习中，转换器用来改变或预处理数据，比如进行归一化、标准化或者使用模型进行预测。
+	- 在Spark MLlib中，Transformer表示一个`transform()`方法，该方法接受一个DataFrame作为输入并产生一个新的DataFrame作为输出。通常，这个输出会包含预测结果、转换后的特征等。
+	- 例如，一个训练好的模型，比如逻辑回归模型，可以用作Transformer来对新数据进行预测。
+- ## Evaluate Regression Model
+- Mean Absolute Error (MAE)
+$$
+MAE = \frac 1n \sum^n_{i=1}|y_i-\hat {y_i}|
+$$
+- Mean Squared Error (MSE)
+$$
+MSE = \frac 1n \sum^n_{i=1}(y_i-\hat {y_i})^2
+$$
+- Root Mean Squared Error (RMSE)
+$$
+RMSE = \sqrt {\frac 1n \sum^n_{i=1}(y_i-\hat {y_i})^2}
+$$
+- R Squared Value
+	- The closer to 1, the better the model fits the data
+![image.png](https://images.wu.engineer/images/2023/11/25/202311260003386.png)
+# 4 - Streaming
 ## Spark
+### Micro Batch Stream Processing
+#### Checkpoint
+### Five Steps to Define a Streaming Query
 
-## Streaming
+### Data Transformation
+#### Stateless Transformation
 
-## Graph
+#### Stateful Transformation
 
-## Big Data System
+### Stateful Streaming Aggregations
+
+### Time Semantics
+#### Event Time
+
+#### Watermark
+
+## Flink
+### Dataflow Model
+
+### Checkpoints
+
+
+
+# 5 - Graph
+
+# 6 - Big Data System
