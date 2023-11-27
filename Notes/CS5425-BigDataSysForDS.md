@@ -1978,10 +1978,212 @@ $$
 - **Example**:
 ![image.png](https://images.wu.engineer/images/2023/11/26/202311270151188.png)
 ### 9.2 Random Walk Formulation
-
+- Imagine a random web surfer:
+	- At time $t=0$, surfer starts on a random page
+	- At any time $t$, surfer is on some page $i$
+	- At time $t+1$, the surfer follows an out-link from $i$ uniformly at random
+	- Process repeats indefinitely
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271318572.png)
+- Let:
+	- $p(t)$ vector whose $i$th coordinate is the prob, that the surfer is at page $i$ at time $t$
+	- So, $p(t)$ is a probability distribution over pages
+- **Stationary Distribution**:
+	- as $t\to \inf$, the probability distribution approaches a "steady state" representing the long term probability that the random walker is at each node, which are the PageRank scores
+- **Equivalence between Random Walk and Flow Formulations**
+	- Where is the surfer at time $t+1$?
+		- Follows a link uniformly at random
+		  $p(t+1)=M\cdot p(t)$
+	- Suppose the random walk reaches a stationary state $p_s$: then $p_s=M\cdot p_s$
+	- In the previous flow formulation of PageRank, the rank vector $r$ was also defined by $r=M\cdot r$
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271327207.png)
 ## 9.3 PageRank with Teleports
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271328799.png)
+- Does this converge?
+	- Not always. Example:
+	  ![image.png](https://images.wu.engineer/images/2023/11/27/202311271328936.png)
+- **Does it converge to what we want?**
+	- Not always. 2 problems:
+		1. Some pages are **dead ends** (have no out-links)
+			- Random walk has "no-where" to go to
+			- Such pages cause importance to "leak out"
+		2. **Spider traps** (**cycle**):
+			- All out links are within the group
+			- Random walk gets "stuck" in the trap
+			- And eventually spider traps absorb all importance
+- **Dead End Example**:
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271406556.png)
+- **Spider Traps Example**
+![](https://images.wu.engineer/images/2023/11/27/202311271406556.png)
+### Teleports
+- The solution for spider traps is **Teleport**
+	- The Google solution for spider traps: **At each time step, the random surfer has two options**:
+		- With prob $\beta$, follow a link at random
+		- With prob $1-\beta$, **jump to some random page**
+		  即一个阻尼系数，会有小概率直接跳转到任意网站，这模拟了用户在现实中的行为
+		- Common values for $\beta$ are in the range 0.8 - 0.9
+- **Conclusion**: surfer will quickly teleport out of any spider trap
 
+- The solution for dead end is: **if at a dead end, always teleport**
+- **Teleports**: Follow random teleports links with probability **100%** from dead-ends
+	- Equivalently, for each dead end $m$ we can preprocess the random walk matrix $M$ by making $m$ connected to every node (including itself)
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271431134.png)
+- **Why are dead-ends and spider traps a problem** and **why do teleports solve the problem**?
+	- **Spider traps** cause random walker to get **stuck** in them, absorbing all importance
+		- **Solution**: Never get stuck in a spider trap by **teleporting** out of it in a finite number of steps
+	- **Dead-ends** cause importance to **leak** out of the system
+		- The matrix is not column stochastic 不具有列随机性
+		- **Solution**: Make matrix column stochastic by **always teleporting** when at a dead end
+
+#### Random Teleport: Equations
+- At each step, random surfer has two options
+	- With probability $\beta$, follow a link at random
+	- With probability $1-\beta$, jump to some random page
+- **PageRank Equation**:
+$$
+r_j = \sum_{i \to j} \beta \frac {r_i} {d_i} + (1-\beta)\frac 1N
+$$
+#### The Google Matrix
+- We can also write the PageRank equation with teleport as a matrix equation, by defining the **Google Matrix A**:
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271442354.png)
+- PageRank equation (matrix form): $r = A\cdot r$
+- In practice $\beta = 0.8,0.9$, (5-10 steps on average before teleport)
+#### Some problems with PageRank
+- Measure generic popularity of a page
+	- Doesn't consider popularity based on specific topic
+	- **Solution**: Topic-specific PageRank
+- Use a single measure of importance
+	- Other models of importance
+	- **Solution**: Hubs-and-Authorities
+- Susceptible to link spam
+	- Artificial link topographies created in order to boost page rank
+	- **Solution**: Trust Rank
+1. **泛化流行度问题**：
+    - PageRank 通常衡量的是页面的泛化流行度，它不会根据特定主题区分页面的重要性。这意味着即使一个页面在某个主题上非常受欢迎，如果它没有足够的全局入站链接，它的 PageRank 可能仍然不高。
+    - **解决方案：主题特定的 PageRank（Topic-Specific PageRank）**：
+        - 这是 PageRank 算法的一种变体，它考虑了页面与特定主题的相关性。在这种方法中，随机跳转不是均匀分布到所有页面，而是倾向于与特定主题相关的页面。
+2. **单一重要性度量问题**：
+    - PageRank 使用单一的度量标准来定义页面的重要性，但在现实世界中，一个页面的重要性可能有多个维度。
+    - **解决方案：Hubs-and-Authorities（枢纽和权威）**：
+        - 这是一个不同的链接分析算法，也被称为 HITS 算法。它识别了两种类型的页面：枢纽（hubs），这些是链接到许多权威页面的页面；以及权威（authorities），这些页面被许多枢纽页面链接。枢纽和权威值分别衡量页面作为资源列表和内容提供者的重要性。
+3. **易受链接垃圾攻击问题**：
+    - PageRank 可以通过所谓的链接垃圾攻击来操纵，即通过人为创建的链接拓扑结构来提高页面的 PageRank。
+    - **解决方案：Trust Rank（信任排名）**：
+        - Trust Rank 是一个帮助识别和过滤垃圾页面的算法。它依赖于一小部分已知的高质量页面（种子集），然后基于这些页面传递信任值来识别可信页面。这有助于降低通过链接垃圾操纵 PageRank 的效果。
 ## 9.4 Topic Sensitive PageRank
+- Instead of generic popularity, can we measure popularity within a topic?
+- **Goal**: Evaluate Web pages not just according to their popularity, but by how close they are to a particular topic, e.g., "sports" or "history"
+- Allows search queries to be answered based on interests of the user
+	- Example: Query "Trojan" wants different pages depending on whether you are interested in sports, history and computer security
 
+- Random walker has a small probability of teleporting at any step
+- **Teleports can go to**:
+	- **Standard PageRank**: Any page with equal probability
+		- To avoid dead-end and spider-trap problems
+	- **Topic Specific PageRank**: A topic-specific set of "relevant" pages (teleport set)
+- **Idea: Bias the random walk**
+	- When random walker teleports, it picks a page from a set $S$
+	- $S$ **contains only pages that are relevant to the topic**
+	- For each teleport set $S$, we get a different vector $r_s$
+#### Matrix Formulation
+- To make this work all we need is to update the teleportation part of the PageRank formulation:
+  ![image.png](https://images.wu.engineer/images/2023/11/27/202311271453026.png)
+- We weighted all pages in the teleport set $S$ equally
+	- Could also assign different weights to pages
+- Compute as for regular PageRank:
+	- Multiply by $M$, then add a vector
+	- Maintains sparseness
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271456165.png)
 ## 9.5 PageRank Implementation
-
+### Characteristics of Graph Algorithms
+- What are some common features of graph algorithm?
+	- Local computations at each vertex
+	- Passing messages to other vertex
+- Think like a vertex: algorithms are implemented from the view of a single vertex, performing one iteration based on messages from its neighbour
+	- Similar to MapReduce, the user only implement a simple function, `compute()`, that describes the algorithm's behaviour at one vertex, in one step
+	- The framework abstracts away the scheduling/implementation details
+**图算法的共同特征**
+图算法通常具有以下几个共同的特征：
+1. **每个顶点的本地计算**：
+    - 算法的执行通常依赖于在每个顶点上进行的局部计算，而不需要全局的数据视图。
+2. **向其他顶点传递消息**：
+    - 顶点之间的通信通过传递消息来实现。每个顶点可以根据接收到的消息和自己的状态来执行计算，并向其他顶点发送消息。
+3. **像顶点一样思考**：
+    - 算法从单个顶点的视角实现。开发者实现一个 `compute()` 函数，该函数描述了在一个超步（superstep）中单个顶点的行为。
+4. **框架抽象**：
+    - 计算框架抽象出调度和实现细节，用户只需要关注单个顶点在一个超步中的计算逻辑。
+### Pregel: Computational Model
+- Computation consists of a series of **supersteps**
+- In each superstep, the framework **invokes a user-defined function**, `compute()`, **for each vertex** (conceptually in parallel)
+- `compute()` specifies behaviour at a single vertex $v$ and a superstep $s$:
+	- It can **read messages** sent to $v$ in superstep $s-1$
+	- It can **send messages** to other vertices that will be read in superstep $s+1$
+	- It can **read or write the value** of $v$ and the value of its outgoing edges (or even add or remove edges)
+- Termination:
+	- A vertex can choose to deactivate itself
+	- Is "woken up" if new messages received
+	- Computation halts when all vertices are inactive
+Pregel 是一个用于大规模图处理的计算模型，其计算过程包括一系列的超步：
+1. **超步（Supersteps）**：
+    - 计算由一系列的超步组成，每个超步包含一轮顶点的计算。
+2. **用户定义的 `compute()` 函数**：
+    - 在每个超步中，框架为每个顶点调用用户定义的 `compute()` 函数，概念上这是并行执行的。
+3. **`compute()` 函数的行为**：
+    - `compute()` 函数定义了在单个顶点 v 和超步 s 时的行为：
+        - 它可以读取在超步 s-1 发送给 v 的消息。
+        - 它可以发送消息给其他顶点，这些消息将在超步 s+1 中被读取。
+        - 它可以读取或写入顶点 v 的值以及其出边的值，甚至可以添加或删除边。
+4. **终止**：
+    - 顶点可以选择停用自己，如果在后续的超步中接收到新消息，它会被重新激活。
+    - 当所有顶点都处于非活动状态时，计算停止。
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271504563.png)
+### Example: Computing Max Value
+- Task: compute the maximum over the values in the vertices in this graph
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271508838.png)
+- Summary of approach:
+	- Each vertex repeatedly sends its current value to its neighbours (as "messages")
+	- Then each vertex updates its value to the **maximum** over its own value, and all messages it receives `max(own_value, msg1_value, msg2_value, ...)`
+		- This process continues until all vertex values stop changing
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271510163.png)
+### Pregel: Implementation
+- Master & workers architecture
+	- Vertices are hash partitioned (by default) and assigned to workers ("**edge cut**")
+	- Each worker maintains the state of its portion of the graph **in memory**
+	- Computations happen **in memory**
+	- In each superstep, each worker loops through its vertices and executes `compute()`
+	- Messages from vertices are sent, either to vertices on the same worker, or to vertices on different workers (**buffered locally** and sent as a batch to reduce network traffic)
+- Fault tolerance
+	- Checkpointing to persistent storage
+	- Failure detected through heartbeats
+	- Corrupt workers are re-assigned and reloaded from checkpoints
+**Pregel 的架构**
+Pregel 采用主/从（Master/Workers）架构：
+1. **哈希分区**：
+    - 顶点默认通过哈希分区，这意味着顶点会根据它们的标识符被分散到不同的工作节点（workers），这种分布方式称为“边切割”（edge cut）。
+2. **工作节点（Workers）**：
+    - 每个工作节点负责维护其分配部分图的状态，并将其保持在内存中，以便快速访问和计算。
+3. **内存中计算**：
+    - 所有的计算都在内存中进行，这提高了处理速度并减少了对磁盘I/O的需求。
+4. **执行 `compute()` 函数**：
+    - 在每个超步中，每个工作节点遍历其负责的顶点，并执行 `compute()` 函数，进行图算法的计算。
+5. **消息传递**：
+    - 顶点之间的消息会被发送。如果目标顶点位于同一个工作节点，则消息直接传递；如果位于不同工作节点，则消息在本地缓冲并批量发送，以减少网络流量。
+**容错机制**
+Pregel 还包括以下容错机制：
+1. **检查点（Checkpointing）**：
+    - 定期将图的状态保存到持久存储（例如，分布式文件系统），这些检查点可以用于在发生故障时恢复图的状态。
+2. **心跳检测故障**：
+    - 通过心跳机制来检测节点故障。如果主节点在预定时间内未收到某个工作节点的心跳，就认为该工作节点发生了故障。
+3. **重新分配和重载**：
+    - 如果检测到工作节点损坏，会重新分配该节点的任务给其他节点，并从最近的检查点中重新加载图的状态，以继续计算。
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271512889.png)
+### PageRank in Pregel
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271515058.png)
+## 9.6 Other Graph Processing Project
+- Giraph
+	- An open-source implementation of Pregel by Facebook
+- Spark GraphX / GraphFrame
+	- Extends RDDs to Resilient Distributed Property Graphs
+	- Join Vertex Table and Edge Table to capture the relationships
+- Neo4j
+	- Graph database + Graph processing
+	- SQL like interface: Cypher Query Language
