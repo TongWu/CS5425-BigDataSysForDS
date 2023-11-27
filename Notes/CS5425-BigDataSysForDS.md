@@ -2042,6 +2042,9 @@ $$
 $$
 r_j = \sum_{i \to j} \beta \frac {r_i} {d_i} + (1-\beta)\frac 1N
 $$
+- N for total number of webpage
+- Where $r_i$ indicates the importance of webpage $i$ that reference the webpage $j$,
+-  $d_i$ indicates the number of out-link (reference) of webpage $i$
 #### The Google Matrix
 - We can also write the PageRank equation with teleport as a matrix equation, by defining the **Google Matrix A**:
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271442354.png)
