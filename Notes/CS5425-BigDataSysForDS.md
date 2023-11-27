@@ -2187,3 +2187,147 @@ Pregel 还包括以下容错机制：
 - Neo4j
 	- Graph database + Graph processing
 	- SQL like interface: Cypher Query Language
+# 10 - Delta Lake
+### Evolution of Data Architectures
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271525943.png)
+### Database
+- Designed to store **structured data** (table)
+- Can be read through SQL queries
+- Data adhere to strict schema
+	- allows database management system to heavily co-optimise data storage and processing through an optimised query processing engines
+- Very fast computation and strong transactional ACID guarantees on read/write operations
+	- Atomicity, Consistency, Isolation, Durability (ACID)
+- OLTP vs. OLAP
+	- Online Transaction Processing (OLTP): traditional database
+	- OnLine Analytical Processing (OLAP): **Data Warehouse**
+### Data Warehouse
+- A central relational repository of integrated, historical data from multiple data souces
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271534488.png)
+#### Dimensional Modelling
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271534918.png)
+#### Data Warehouse Benefits & Challenges
+**Benefits**:
+- Served the business community well
+	- Store large amounts of historical data from different sources
+	- Very reliable with strong transactional ACID guarantees
+	- Modelled with standard star-schema modelling techniques
+	- Ideally suited for business intelligence and reporting
+**Challenges**:
+- Big Data Trends (Volume, Velocity, Variety, Veracity)
+	- Growth in data sizes
+	- Growth in the diversity of analytics
+- Data Warehouses have a hard time address these 4V
+	- **Extremely expensive to scale out**
+	- Do not support **non-SQL** based analytics very well
+
+### Data Lake
+- A cost-effective central repository to store data **at any scale**
+- A **distributed storage** solution, runs on commodity hardware, and **easily scales out horizontally**
+- Data is saved as files with **open formats**
+	- any processing engine can read and write then using standard APIs
+- Decouples the distributed storage system from the distributed compute system
+	- Allows each system to scale out as needed by the workloads
+- Organisations build their data lakes by independently choosing:
+	- **Storage System**: HDFS, S3, Cloud
+	- **File format**:
+		- Structured: Parquet, ORC
+		- Semi-structured: JSON
+		- Unstructured formats: text, images, audio, video
+	- **Computing / Processing Engines**:
+		- Batch processing engine: Spark, Presto, Apache Hive
+		- Stream processing engine: Spark, Apache Flink
+		- Machine Learning library: Spark MLlib, scikit-learn, R
+- Pros:
+	- **Flexibility** on choosing storage, data format and processing engines
+	- A much **cheaper** solution than database -> explosive growth of the big data ecosystem
+- Cons:
+	- **Fail** to provide **ACID** guarantees
+	- Building and maintaining an effective data lake requires **expert skills**
+	- Easy to ingest data but **very expensive** to **transform** data to deliver business values
+	- Data quality issues due to the **lack of schema enforcement**
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271542474.png)
+### Data Lakehouse
+- A system merges both data lake and warehouse:
+	- The flexibility, low cost, and scale of a data lake
+	- The data management and ACID transactions of data warehouse
+- A good fit for both users:
+	- Business intelligence
+	- Machine Learning/AI
+- Especially good math for cloud environment
+	- with separate storage and computing resources
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271550069.png)
+### Delta Lake
+- The metadata, caching and indexing layer on top of a data lake storage that provides an abstraction level to serve ACID transaction and other management features
+	- Transactional ACID guarantees
+	- Full DML (Data Manipulation Language) support
+	- Audit History
+	- Unification of batch and streaming into one processing model
+	- Schema enforcement and evolution
+	- Rich metadata support and scaling
+Delta Lake 是一个开源存储层，用于在现有的数据湖上提供 ACID（原子性、一致性、隔离性、持久性）事务支持。它将数据湖中的大量非结构化和半结构化数据转化为一个有结构的、可靠的数据存储，从而克服了传统数据湖的某些限制，如元数据管理的不足、数据版本控制和更新的复杂性、以及数据质量问题。
+Delta Lake 的关键特点包括：
+1. **ACID 事务**：
+    - 提供数据修改的事务支持，包括并发读写操作的隔离性保证和原子性更新，确保数据的一致性和完整性。
+2. **可伸缩的元数据处理**：
+    - 通过在存储层面引入元数据，Delta Lake 支持大规模数据集的快速读取和写入，同时保持对元数据的快速访问。
+3. **数据版本控制**：
+    - 支持数据的版本控制，允许用户访问和恢复到历史数据版本，为数据变更提供审计和回滚能力。
+4. **架构演化**：
+    - 为数据表提供了架构演化支持，当数据架构变化时，可以在不删除现有数据的情况下添加新字段或更改现有字段。
+5. **统一批处理和流处理**：
+    - Delta Lake 可以用于批处理和流处理数据，为两者提供统一的框架和API，简化了大数据处理流程。
+6. **兼容现有的数据湖技术**：
+    - 它可以无缝集成到现有的数据湖架构中，如 Hadoop、AWS S3、Azure Data Lake Storage 等，并兼容大数据处理框架，如 Apache Spark。
+#### Data Lakehouse Layered Architecture
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271553065.png)
+#### Delta Lake Format
+- A standard `parquet` file with additional metadata
+- `parquet` files:
+	- Column oriented: perform compression on a column-by-column basis
+	- Open source
+	- Self-describing: actual data + metadata (schema & file structure)
+Parquet 是一种开源的列式存储格式，专为大数据的性能和效率而设计。它支持复杂的嵌套数据结构，并且由于其列式的性质，非常适合于数据仓库操作，如 Apache Hadoop、Apache Spark 和 Apache Impala 等大数据处理工具。
+Parquet 文件格式的关键特点包括：
+1. **列式存储**：
+    - 数据按列存储而不是按行存储。这种方式非常适合进行大规模的数据分析操作，因为它可以有效地压缩数据并减少读取数据的IO操作，特别是在查询特定列时。
+2. **高效压缩和编码**：
+    - Parquet 文件支持高效的压缩和编码方案。由于列中的数据通常是相同类型的，所以可以更有效地压缩数据，减少存储空间。
+3. **支持复杂的数据类型**：
+    - Parquet 支持复杂的嵌套数据结构，如结构体、列表和映射等。
+4. **优化的读取性能**：
+    - 列式存储使得在执行分析查询时，只需读取必要的列数据，从而优化了读取性能。
+5. **兼容性**：
+    - Parquet 文件可以与许多数据处理工具集成，如 Apache Hive、Presto 和 AWS Athena 等。
+6. **跨平台互操作性**：
+    - Parquet 格式支持跨平台使用，这意味着在不同的数据处理系统之间可以无缝地移动和处理 Parquet 文件。
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271556465.png)
+### The Delta Lake Transaction Log (DeltaLog)
+- The transaction log is an ordered record of every transaction made against a Delta table since it was created
+- It acts as a single source of truth and tracks all changes made to the table
+- The main goal is to enable multiple readers and writers to operate on a given version of a dataset simultaneously
+- It is at the core of many important features
+	- ACID transactions
+		- Spark looks at the transaction log to get the latest version of the table
+		- If an operation is not recorded in the transaction log, it never happened
+	- Scalable metadata handling
+	- Time travel
+1. **事务日志是有序记录**：
+    - Delta Lake 的事务日志记录了自表创建以来的每一个事务。这包括数据的添加、删除、修改等所有更改。
+2. **真理的唯一来源**：
+    - 事务日志作为表变化的唯一记录，是确定表历史状态和当前状态的权威来源。
+3. **支持并发读写**：
+    - 事务日志的主要目标是允许多个读写者同时对数据集的给定版本进行操作。这意味着用户可以同时读取和写入数据，而 Delta Lake 会协调这些操作以保证数据一致性。
+4. **核心功能**：
+    - 事务日志是 Delta Lake 提供许多重要功能的核心，包括但不限于以下几点：
+        - **ACID事务**：
+            - 当 Apache Spark 或其他数据处理引擎需要读取或修改 Delta 表时，它们会参照事务日志来获取表的最新版本。如果操作未在事务日志中记录，那么在 Delta Lake 的视角中，该操作就被视为没有发生过。
+        - **可扩展的元数据处理**：
+            - 随着表和文件的数量增长，事务日志允许 Delta Lake 高效管理元数据，而无需读取整个数据集的所有文件。
+        - **时间旅行（Time Travel）**：
+            - 事务日志允许用户查看表的历史版本，回溯到过去的某个特定点。这种能力称为“时间旅行”，它为数据的审计和回溯提供了强大的能力。
+#### Breaking down Transactions into Atomic Commits
+- List of possible actions in transaction log entry:
+![image.png](https://images.wu.engineer/images/2023/11/27/202311271602785.png)
+- Example: a user creates a transaction to add a new column to a table and then adds data to it:
+	1. Update Metadata - change the schema to include the new column
+	2. Add file - for each new file added
