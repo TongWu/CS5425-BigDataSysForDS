@@ -2188,9 +2188,9 @@ Pregel 还包括以下容错机制：
 	- Graph database + Graph processing
 	- SQL like interface: Cypher Query Language
 # 10 - Delta Lake
-### Evolution of Data Architectures
+## 10.1 Evolution of Data Architectures
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271525943.png)
-### Database
+## 10.2 Database
 - Designed to store **structured data** (table)
 - Can be read through SQL queries
 - Data adhere to strict schema
@@ -2200,12 +2200,12 @@ Pregel 还包括以下容错机制：
 - OLTP vs. OLAP
 	- Online Transaction Processing (OLTP): traditional database
 	- OnLine Analytical Processing (OLAP): **Data Warehouse**
-### Data Warehouse
+## 10.3 Data Warehouse
 - A central relational repository of integrated, historical data from multiple data souces
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271534488.png)
-#### Dimensional Modelling
+### Dimensional Modelling
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271534918.png)
-#### Data Warehouse Benefits & Challenges
+### Data Warehouse Benefits & Challenges
 **Benefits**:
 - Served the business community well
 	- Store large amounts of historical data from different sources
@@ -2220,7 +2220,7 @@ Pregel 还包括以下容错机制：
 	- **Extremely expensive to scale out**
 	- Do not support **non-SQL** based analytics very well
 
-### Data Lake
+## 10.4 Data Lake
 - A cost-effective central repository to store data **at any scale**
 - A **distributed storage** solution, runs on commodity hardware, and **easily scales out horizontally**
 - Data is saved as files with **open formats**
@@ -2246,7 +2246,7 @@ Pregel 还包括以下容错机制：
 	- Easy to ingest data but **very expensive** to **transform** data to deliver business values
 	- Data quality issues due to the **lack of schema enforcement**
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271542474.png)
-### Data Lakehouse
+## 10.5 Data Lakehouse
 - A system merges both data lake and warehouse:
 	- The flexibility, low cost, and scale of a data lake
 	- The data management and ACID transactions of data warehouse
@@ -2256,7 +2256,7 @@ Pregel 还包括以下容错机制：
 - Especially good math for cloud environment
 	- with separate storage and computing resources
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271550069.png)
-### Delta Lake
+## 10.6 Delta Lake
 - The metadata, caching and indexing layer on top of a data lake storage that provides an abstraction level to serve ACID transaction and other management features
 	- Transactional ACID guarantees
 	- Full DML (Data Manipulation Language) support
@@ -2278,9 +2278,9 @@ Delta Lake 的关键特点包括：
     - Delta Lake 可以用于批处理和流处理数据，为两者提供统一的框架和API，简化了大数据处理流程。
 6. **兼容现有的数据湖技术**：
     - 它可以无缝集成到现有的数据湖架构中，如 Hadoop、AWS S3、Azure Data Lake Storage 等，并兼容大数据处理框架，如 Apache Spark。
-#### Data Lakehouse Layered Architecture
+### Data Lakehouse Layered Architecture
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271553065.png)
-#### Delta Lake Format
+### Delta Lake Format
 - A standard `parquet` file with additional metadata
 - `parquet` files:
 	- Column oriented: perform compression on a column-by-column basis
@@ -2301,7 +2301,7 @@ Parquet 文件格式的关键特点包括：
 6. **跨平台互操作性**：
     - Parquet 格式支持跨平台使用，这意味着在不同的数据处理系统之间可以无缝地移动和处理 Parquet 文件。
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271556465.png)
-### The Delta Lake Transaction Log (DeltaLog)
+## 10.7 The Delta Lake Transaction Log (DeltaLog)
 - The transaction log is an ordered record of every transaction made against a Delta table since it was created
 - It acts as a single source of truth and tracks all changes made to the table
 - The main goal is to enable multiple readers and writers to operate on a given version of a dataset simultaneously
@@ -2325,7 +2325,7 @@ Parquet 文件格式的关键特点包括：
             - 随着表和文件的数量增长，事务日志允许 Delta Lake 高效管理元数据，而无需读取整个数据集的所有文件。
         - **时间旅行（Time Travel）**：
             - 事务日志允许用户查看表的历史版本，回溯到过去的某个特定点。这种能力称为“时间旅行”，它为数据的审计和回溯提供了强大的能力。
-#### Breaking down Transactions into Atomic Commits
+### Breaking down Transactions into Atomic Commits
 - List of possible actions in transaction log entry:
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271602785.png)
 - Example: a user creates a transaction to add a new column to a table and then adds data to it:
