@@ -1722,7 +1722,7 @@ However, it is not sufficient to just keep this state in memory, as any **failur
 - An event time window computation will yield the same result no matter how fast the stream is processed or when the events arrive the operator
 - But, how long do we have to wait before we can be certain that we have received all events that happened before a certain point of time?
 	- **Watermark**
-- 事件时间将处理速度和结果完全分离。基于事件事件的运算是可预测的，其结果也是确定的。
+- 事件时间将处理速度和结果完全分离。基于事件时间的运算是可预测的，其结果也是确定的。
 - 由于数据到处理节点需要事件，我们使用该事件真实发生的时间来判断是否计算这个数据。无论数据流的处理有多快，或事件会何时到达运算器，事件时间窗口计算都会产生相同的结果
 
 - In Stateful streaming aggregation, we implement aggregations with **Event-Time windows**
@@ -2204,7 +2204,7 @@ Pregel 还包括以下容错机制：
 	- Online Transaction Processing (OLTP): traditional database
 	- OnLine Analytical Processing (OLAP): **Data Warehouse**
 ## 10.3 Data Warehouse
-- A central relational repository of integrated, historical data from multiple data souces
+- A central relational repository of integrated, historical data from multiple data sources
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271534488.png)
 ### Dimensional Modelling
 ![image.png](https://images.wu.engineer/images/2023/11/27/202311271534918.png)
