@@ -19,4 +19,4 @@
 
 ## Notes
 
-The self-orgnised note can be found at [this link](https://wiki.wu.engineer/NationalUniversityOfSingapore/CS5425-BigDataSysForDS), or navigate to the 'Notes' folder in this repo.
+The self-orgnised note can be found at [this link](https://wiki.wu.engineer/archives/cs5425-note), or navigate to the 'Notes' folder in this repo.
